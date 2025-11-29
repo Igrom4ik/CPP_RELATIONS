@@ -177,15 +177,22 @@ const AIChatPanel: React.FC<{ nodes: FileNode[]; onFileClick: (node: FileNode) =
         setInput("");
         setIsSending(true);
 
-        // --- CONTEXT GENERATION ---
-        let context = "Project File Structure:\n";
-        nodes.forEach(n => context += `- ${n.id} [${n.type}]\n`);
+        // --- CONTEXT GENERATION (OPTIMIZED FOR LOCAL AI) ---
+        let context = "Project File Structure (Top 200):\n";
         
+        // Limit structure context to prevent overflow (max 200 files)
+        const maxStructureFiles = 200;
+        nodes.slice(0, maxStructureFiles).forEach(n => context += `- ${n.id} [${n.type}]\n`);
+        if (nodes.length > maxStructureFiles) context += `... and ${nodes.length - maxStructureFiles} more files.\n`;
+        
+        // Find referenced files
         const mentionedFiles = nodes.filter(n => input.includes(n.name) || input.includes(n.id));
         if (mentionedFiles.length > 0) {
             context += "\nContent of Referenced Files:\n";
             mentionedFiles.forEach(f => {
-                context += `\n--- START OF FILE: ${f.id} ---\n${f.content}\n--- END OF FILE ---\n`;
+                // TRUNCATE content to safe limit (e.g. 2000 chars per file) to prevent crashing local LLMs
+                const truncatedContent = f.content.slice(0, 2000);
+                context += `\n--- START OF FILE: ${f.id} ---\n${truncatedContent}${f.content.length > 2000 ? '\n...[Content Truncated]...' : ''}\n--- END OF FILE ---\n`;
             });
         }
 
@@ -252,7 +259,7 @@ const AIChatPanelMemo = React.memo(AIChatPanel);
 const AISettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onSave: (s: AISettings) => void }> = ({ isOpen, onClose, onSave }) => {
     const [provider, setProvider] = useState<'gemini' | 'custom'>('gemini');
     const [apiKey, setApiKey] = useState('');
-    const [baseUrl, setBaseUrl] = useState('http://localhost:1234/v1');
+    const [baseUrl, setBaseUrl] = useState('http://localhost:1234');
     const [modelName, setModelName] = useState('local-model');
 
     if (!isOpen) return null;
@@ -273,9 +280,16 @@ const AISettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onSave: 
                         </div>
                     ) : (
                         <>
-                            <div><label className="block text-xs text-gray-500 mb-1">Base URL</label><input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" /></div>
+                            <div>
+                                <label className="block text-xs text-gray-500 mb-1">Base URL</label>
+                                <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" />
+                                <span className="text-[10px] text-gray-500 mt-1 block leading-tight">
+                                    Format: <code>http://localhost:1234</code>. The app automatically appends <code>/v1</code>. 
+                                    <br/>Do NOT paste the full path like <code>/chat/completions</code>.
+                                </span>
+                            </div>
                             <div><label className="block text-xs text-gray-500 mb-1">Model Name</label><input type="text" value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" /></div>
-                            <div><label className="block text-xs text-gray-500 mb-1">API Key</label><input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" /></div>
+                            <div><label className="block text-xs text-gray-500 mb-1">API Key</label><input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" placeholder="Optional for local models" /></div>
                         </>
                     )}
                 </div>

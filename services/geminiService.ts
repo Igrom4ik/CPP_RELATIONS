@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { InteractionAnalysis, AISettings, ChatMessage } from "../types";
 
@@ -8,6 +9,26 @@ let currentSettings: AISettings = {
 
 export const configureAI = (settings: AISettings) => {
     currentSettings = settings;
+};
+
+// Helper to normalize Base URL
+const normalizeBaseUrl = (url: string) => {
+    let cleaned = url.trim().replace(/\/+$/, '');
+    
+    // Common mistake: user pastes the full endpoint url (e.g. http://localhost:1234/v1/chat/completions)
+    // We need the base path (http://localhost:1234/v1)
+    if (cleaned.endsWith('/chat/completions')) {
+        cleaned = cleaned.substring(0, cleaned.length - '/chat/completions'.length);
+    }
+    
+    // Clean up trailing slash again
+    cleaned = cleaned.replace(/\/+$/, '');
+
+    // Ensure it ends with /v1 (standard for OpenAI compatible endpoints)
+    if (!cleaned.endsWith('/v1')) {
+        cleaned += '/v1';
+    }
+    return cleaned;
 };
 
 // 1. Google Gemini Implementation
@@ -51,7 +72,7 @@ const chatWithGemini = async (messages: ChatMessage[], context?: string): Promis
 
 // 2. Custom Provider Implementation
 const analyzeWithCustom = async (prompt: string): Promise<string> => {
-    const baseUrl = currentSettings.baseUrl || 'http://localhost:1234/v1';
+    const baseUrl = normalizeBaseUrl(currentSettings.baseUrl || 'http://localhost:1234');
     const modelName = currentSettings.modelName || 'local-model';
     
     const body = {
@@ -63,43 +84,88 @@ const analyzeWithCustom = async (prompt: string): Promise<string> => {
         temperature: 0.2
     };
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${currentSettings.apiKey || 'lm-studio'}` },
-        body: JSON.stringify(body)
-    });
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+    };
+    // Only attach Auth header if a key is explicitly provided
+    if (currentSettings.apiKey && currentSettings.apiKey.trim() !== '') {
+        headers["Authorization"] = `Bearer ${currentSettings.apiKey}`;
+    }
 
-    if (!response.ok) throw new Error(`Custom AI Error: ${response.statusText}`);
-    const data = await response.json();
-    return data.choices[0]?.message?.content || "{}";
+    try {
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) throw new Error(`Custom AI Error: ${response.status} ${response.statusText}`);
+        const data = await response.json();
+        return data.choices[0]?.message?.content || "{}";
+    } catch (error: any) {
+        if (error.message === 'Failed to fetch') {
+            throw new Error(`Connection Failed to ${baseUrl}. \nCheck: \n1. Is LM Studio/Ollama running? \n2. Is CORS enabled? \n3. Try swapping 'localhost' vs '127.0.0.1'.`);
+        }
+        throw error;
+    }
 };
 
 const chatWithCustom = async (messages: ChatMessage[], context?: string): Promise<string> => {
-    const baseUrl = currentSettings.baseUrl || 'http://localhost:1234/v1';
+    const baseUrl = normalizeBaseUrl(currentSettings.baseUrl || 'http://localhost:1234');
     const modelName = currentSettings.modelName || 'local-model';
 
-    const systemContent = context 
+    // Prevent huge contexts from crashing local models (standard context is 4096 or 8192 tokens)
+    let systemContent = context 
         ? `You are an expert C++ developer. PROJECT CONTEXT:\n${context}`
         : "You are an expert C++ developer.";
+    
+    // Hard cap system context char length (~3000-4000 tokens safe limit)
+    if (systemContent.length > 12000) {
+        systemContent = systemContent.substring(0, 12000) + "\n...[Context Truncated due to length]...";
+    }
+
+    // SLIDING WINDOW for history: Only keep last 6 messages to save context for prompt & completion
+    const recentMessages = messages.slice(-6);
 
     const body = {
         model: modelName,
         messages: [
             { role: "system", content: systemContent },
-            ...messages.map(m => ({ role: m.role, content: m.content }))
+            ...recentMessages.map(m => ({ role: m.role, content: m.content }))
         ],
         temperature: 0.7
     };
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${currentSettings.apiKey || 'lm-studio'}` },
-        body: JSON.stringify(body)
-    });
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+    };
+    // Only attach Auth header if a key is explicitly provided
+    if (currentSettings.apiKey && currentSettings.apiKey.trim() !== '') {
+        headers["Authorization"] = `Bearer ${currentSettings.apiKey}`;
+    }
 
-    if (!response.ok) throw new Error(`Custom AI Error: ${response.statusText}`);
-    const data = await response.json();
-    return data.choices[0]?.message?.content || "";
+    try {
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            if (errText.includes("context length")) {
+                throw new Error("Context Overflow: Project too large for this AI model. Try increasing Context Length in LM Studio or select fewer files.");
+            }
+            throw new Error(`Custom AI Error: ${response.status} ${response.statusText}`);
+        }
+        const data = await response.json();
+        return data.choices[0]?.message?.content || "";
+    } catch (error: any) {
+        if (error.message === 'Failed to fetch') {
+            throw new Error(`Connection Failed to ${baseUrl}. \nPossible causes: \n1. Server not running. \n2. CORS blocked (check server logs). \n3. Mixed Content (Using HTTP local server from HTTPS app).`);
+        }
+        throw error;
+    }
 };
 
 
@@ -129,8 +195,8 @@ export const sendChatMessage = async (messages: ChatMessage[], context?: string)
         } else {
             return await chatWithGemini(messages, context);
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error("Chat Error", error);
-        return "Error communicating with AI service. Check your API key or connection.";
+        return `Error: ${error.message || "Unknown error occurred"}`;
     }
 };
