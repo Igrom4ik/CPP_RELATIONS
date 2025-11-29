@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { FileNode } from '../types';
 import { Button } from './ui/Button';
 import { Icons } from './ui/Icons';
+import { getFileIcon, getFolderIcon } from '../utils/fileIconMapper';
 
 interface TreeNode {
   name: string;
@@ -37,14 +38,17 @@ const FileTreeItem: React.FC<{ node: TreeNode; depth: number; onFileClick: (node
   const isSelected = node.type === 'file' && node.path === selectedPath;
 
   if (node.type === 'file') {
-      let colorClass = 'bg-blue-500';
-      if (node.node?.type === 'header') colorClass = 'bg-orange-500';
-      if (node.node?.type === 'cmake') colorClass = 'bg-green-500';
-      if (node.node?.type === 'json') colorClass = 'bg-yellow-500';
-
     return (
       <div onClick={handleFileClick} className={`flex items-center gap-2 py-1.5 px-2 cursor-pointer transition-colors text-sm border-l-2 ${isSelected ? 'bg-blue-500/10 text-blue-400 border-blue-500' : 'text-zinc-400 border-transparent hover:bg-zinc-800 hover:text-zinc-200 hover:border-zinc-700'}`} style={{ paddingLeft: `${depth * 12 + 12}px` }}>
-        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colorClass}`}></span>
+        <img
+          src={getFileIcon(node.name)}
+          alt=""
+          className="w-4 h-4 flex-shrink-0 object-contain"
+          onError={(e) => {
+            // Fallback to default icon if image fails to load
+            e.currentTarget.src = '/vscode-icons/icons/default_file.svg';
+          }}
+        />
         <span className="truncate">{node.name}</span>
       </div>
     );
@@ -55,7 +59,16 @@ const FileTreeItem: React.FC<{ node: TreeNode; depth: number; onFileClick: (node
         <div className={`transition-transform duration-200 text-zinc-500 ${isOpen ? 'rotate-90' : ''}`}>
             <Icons.ChevronRight className="w-3 h-3" />
         </div>
-        <Icons.FolderOpen className="w-4 h-4 text-yellow-600/80" />
+        <img
+          src={getFolderIcon(node.name, isOpen)}
+          alt=""
+          className="w-4 h-4 flex-shrink-0 object-contain"
+          onError={(e) => {
+            e.currentTarget.src = isOpen
+              ? '/vscode-icons/icons/default_folder_opened.svg'
+              : '/vscode-icons/icons/default_folder.svg';
+          }}
+        />
         <span className="truncate">{node.name}</span>
       </div>
       <div className={`${isOpen ? 'block' : 'hidden'}`}>

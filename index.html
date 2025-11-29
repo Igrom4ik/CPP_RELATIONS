@@ -149,6 +149,22 @@
         }
       }
 
+      /* File Tree Icon Styles */
+      .file-tree-icon {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .file-tree-icon:hover {
+        transform: scale(1.1);
+      }
+
+      /* Smooth icon loading */
+      img[src*="vscode-icons"] {
+        will-change: transform;
+      }
+
       /* Markdown Content Styles */
       .markdown-content {
         line-height: 1.6;
