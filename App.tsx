@@ -1,13 +1,22 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import GraphVisualization from './components/GraphVisualization';
-import ResizableSplit from './components/ResizableSplit';
 import { Sidebar } from './components/Sidebar';
 import { AIChatPanelMemo } from './components/AIChatPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { CodeViewer } from './components/CodeViewer';
 import { Button } from './components/ui/Button';
 import { Icons } from './components/ui/Icons';
+import { MenuBar } from './components/layout/MenuBar';
+import { StatusBar } from './components/layout/StatusBar';
+import { CommandPalette } from './components/ui/CommandPalette';
+import { ContextMenu } from './components/ui/ContextMenu';
+import { Tooltip } from './components/ui/Tooltip';
+import { LiquidProgressBar } from './components/ui/LiquidProgressBar';
 import { useProject } from './hooks/useProject';
+import { useContextMenu, ContextMenuItem } from './hooks/useContextMenu';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { AISettings } from './types';
 import { configureAI } from './services/geminiService';
 
@@ -42,14 +51,43 @@ class ErrorBoundary extends React.Component<
 }
 
 const App: React.FC = () => {
-  const { 
-    data, loading, tabs, activeTabId, selectedNodeId, isChatOpen, setIsChatOpen, useAI, setUseAI,
-    handleLoadFiles, closeTab, switchTab, onNodeDoubleClick, onSymbolClick, onLinkClick, onFileSelect, setSelectedNodeId 
+  const {
+    data, loading, loadingProgress, tabs, activeTabId, selectedNodeId, isChatOpen, setIsChatOpen, useAI, setUseAI,
+    handleLoadFiles, closeTab, switchTab, onNodeDoubleClick, onSymbolClick, onLinkClick, onFileSelect, setSelectedNodeId
   } = useProject();
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
   const [linkStyle, setLinkStyle] = useState<'bezier' | 'orthogonal'>('bezier');
   const [animateLinks, setAnimateLinks] = useState(false);
+  const [aiStatus, setAiStatus] = useState<'idle' | 'processing' | 'error'>('idle');
+
+  const contextMenu = useContextMenu();
+
+  // Keyboard Shortcuts
+  useKeyboardShortcuts([
+    { key: 'o', ctrl: true, callback: () => fileInputRef.current?.click(), description: 'Load Project' },
+    { key: 'k', ctrl: true, callback: () => setShowCommandPalette(true), description: 'Command Palette' },
+    { key: 'b', ctrl: true, callback: () => setSidebarVisible(!sidebarVisible), description: 'Toggle Sidebar' },
+    { key: 'j', ctrl: true, callback: () => setIsChatOpen(!isChatOpen), description: 'Toggle Chat' },
+    { key: ',', ctrl: true, callback: () => setShowSettings(true), description: 'Settings' },
+    { key: 'm', ctrl: true, callback: () => setAnimateLinks(!animateLinks), description: 'Toggle Animation' },
+  ]);
+
+  // Command Palette Actions
+  const commandActions = useMemo(() => [
+    { id: 'load-project', label: 'Load Project', icon: <Icons.FolderOpen className="w-4 h-4" />, category: 'File', shortcut: 'Ctrl+O', onSelect: () => fileInputRef.current?.click() },
+    { id: 'export-graph', label: 'Export Graph', icon: <Icons.Download className="w-4 h-4" />, category: 'File', shortcut: 'Ctrl+E', onSelect: () => alert('Export feature coming soon!') },
+    { id: 'toggle-sidebar', label: 'Toggle Sidebar', icon: <Icons.FolderOpen className="w-4 h-4" />, category: 'View', shortcut: 'Ctrl+B', onSelect: () => setSidebarVisible(!sidebarVisible) },
+    { id: 'toggle-chat', label: 'Toggle AI Chat', icon: <Icons.Chat className="w-4 h-4" />, category: 'View', shortcut: 'Ctrl+J', onSelect: () => setIsChatOpen(!isChatOpen) },
+    { id: 'clear-focus', label: 'Clear Graph Focus', icon: <Icons.Close className="w-4 h-4" />, category: 'Graph', onSelect: () => setSelectedNodeId(null) },
+    { id: 'bezier-links', label: 'Use Bezier Links', icon: <Icons.Graph className="w-4 h-4" />, category: 'Graph', onSelect: () => setLinkStyle('bezier') },
+    { id: 'orthogonal-links', label: 'Use Orthogonal Links', icon: <Icons.Code className="w-4 h-4" />, category: 'Graph', onSelect: () => setLinkStyle('orthogonal') },
+    { id: 'toggle-animation', label: 'Toggle Link Animation', icon: <Icons.Play className="w-4 h-4" />, category: 'Graph', shortcut: 'Ctrl+M', onSelect: () => setAnimateLinks(!animateLinks) },
+    { id: 'settings', label: 'AI Configuration', icon: <Icons.Settings className="w-4 h-4" />, category: 'Settings', shortcut: 'Ctrl+,', onSelect: () => setShowSettings(true) },
+  ], [sidebarVisible, isChatOpen, animateLinks]);
 
   // Active Graph Data (Filtered by Selection)
   const activeGraphData = useMemo(() => {
@@ -138,14 +176,18 @@ const App: React.FC = () => {
                        </div>
                    </div>
                    <div className="flex-1 min-h-0">
-                       <ResizableSplit direction="horizontal" initialSize="50%" minSize={100} gutterSize={2}>
-                           <div className="flex flex-col h-full min-w-0 border-r border-zinc-800">
+                       <PanelGroup direction="horizontal">
+                         <Panel defaultSize={50} minSize={30}>
+                           <div className="flex flex-col h-full min-w-0">
                                <div className="bg-zinc-950 p-2 text-blue-400 text-xs font-bold border-b border-zinc-800 flex justify-between"><span>SOURCE</span></div>
                                <div className="flex-1 min-h-0 overflow-hidden relative">
                                    <CodeViewer code={tab.data.callerSnippet.code} fileName="cpp" highlightLines={{ start: 1, color: 'blue' }} />
                                    <div className="absolute bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur p-3 text-xs text-zinc-400 border-t border-zinc-800">{tab.data.callerSnippet.explanation}</div>
                                </div>
                            </div>
+                         </Panel>
+                         <PanelResizeHandle className="w-1 bg-zinc-800 hover:bg-orange-500 transition-colors duration-200 cursor-col-resize" />
+                         <Panel defaultSize={50} minSize={30}>
                            <div className="flex flex-col h-full min-w-0">
                                <div className="bg-zinc-950 p-2 text-orange-400 text-xs font-bold border-b border-zinc-800 flex justify-between"><span>TARGET</span></div>
                                <div className="flex-1 min-h-0 overflow-hidden relative">
@@ -153,7 +195,8 @@ const App: React.FC = () => {
                                    <div className="absolute bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur p-3 text-xs text-zinc-400 border-t border-zinc-800">{tab.data.calleeSnippet.explanation}</div>
                                </div>
                            </div>
-                       </ResizableSplit>
+                         </Panel>
+                       </PanelGroup>
                    </div>
                </div>
           );
@@ -161,62 +204,197 @@ const App: React.FC = () => {
       return null;
   };
 
-  return (
-    <div className="flex h-screen w-screen bg-zinc-950 text-zinc-300 font-sans overflow-hidden">
-      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} onSave={handleSaveAIConfig} />
-      
-      <ResizableSplit direction="horizontal" initialSize={280} minSize={220} maxSize={450} gutterSize={2}>
-          <Sidebar 
-            nodes={data.nodes} 
-            selectedNodeId={selectedNodeId} 
-            onFileSelect={onFileSelect} 
-            onLoadFiles={handleLoadFiles} 
-            onShowSettings={() => setShowSettings(true)}
-            loading={loading}
-          />
+  // Tab Context Menu Handler
+  const handleTabContextMenu = (e: React.MouseEvent, tab: any) => {
+    const items: ContextMenuItem[] = [
+      { label: 'Close', icon: <Icons.Close className="w-4 h-4" />, onClick: () => closeTab(tab.id), shortcut: 'Ctrl+W', disabled: tabs.length === 1 },
+      { label: 'Close Others', icon: <Icons.Close className="w-4 h-4" />, onClick: () => tabs.forEach(t => t.id !== tab.id && closeTab(t.id)), disabled: tabs.length === 1 },
+      { label: 'Close All', icon: <Icons.Close className="w-4 h-4" />, onClick: () => tabs.slice(1).forEach(t => closeTab(t.id)), danger: true, disabled: tabs.length === 1 },
+    ];
+    contextMenu.open(e, items);
+  };
 
+  return (
+    <div className="flex flex-col h-screen w-screen bg-zinc-950 text-zinc-300 font-sans overflow-hidden">
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} onSave={handleSaveAIConfig} />
+      <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} commands={commandActions} />
+      <ContextMenu isOpen={contextMenu.isOpen} position={contextMenu.position} items={contextMenu.items} onClose={contextMenu.close} />
+
+      {/* Hidden file input for loading projects */}
+      <input type="file" ref={fileInputRef} className="hidden" {...({ webkitdirectory: "", directory: "", multiple: "" } as any)} onChange={(e) => e.target.files && handleLoadFiles(e.target.files)} />
+
+      {/* Menu Bar */}
+      <MenuBar
+        onLoadFiles={() => fileInputRef.current?.click()}
+        onSaveLayout={() => alert('Save layout feature coming soon!')}
+        onExportGraph={() => alert('Export feature coming soon!')}
+        onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
+        onToggleChat={() => setIsChatOpen(!isChatOpen)}
+        onShowSettings={() => setShowSettings(true)}
+        onChangeLinkStyle={setLinkStyle}
+        onToggleAnimation={() => setAnimateLinks(!animateLinks)}
+        onOpenCommandPalette={() => setShowCommandPalette(true)}
+      />
+
+      <PanelGroup direction="horizontal" className="flex-1">
+        {/* Sidebar Panel */}
+        <AnimatePresence mode="wait">
+          {sidebarVisible && (
+            <Panel
+              defaultSize={20}
+              minSize={15}
+              maxSize={35}
+              className="bg-zinc-900 border-r border-zinc-800"
+            >
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                className="h-full"
+              >
+                <Sidebar
+                  nodes={data.nodes}
+                  selectedNodeId={selectedNodeId}
+                  onFileSelect={onFileSelect}
+                  onLoadFiles={handleLoadFiles}
+                  onShowSettings={() => setShowSettings(true)}
+                  loading={loading}
+                />
+              </motion.div>
+            </Panel>
+          )}
+        </AnimatePresence>
+
+        {/* Resize Handle */}
+        {sidebarVisible && (
+          <PanelResizeHandle className="w-1 bg-zinc-800 hover:bg-blue-500 transition-colors duration-200 cursor-col-resize" />
+        )}
+
+        {/* Main Content Panel */}
+        <Panel minSize={30} className="flex flex-col">
           <div className="flex flex-col h-full bg-zinc-950 min-w-0 relative">
               {/* Tab Bar */}
               <div className="h-10 bg-zinc-900 flex items-end px-2 gap-1 border-b border-zinc-800 pt-1 flex-shrink-0 pr-12 select-none">
                   {tabs.map(tab => (
-                      <div key={tab.id} onClick={() => switchTab(tab.id)} 
-                           className={`group relative flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer border-t-2 transition-all min-w-[120px] max-w-[200px] rounded-t-md ${tab.active ? 'bg-zinc-800 text-zinc-100 border-blue-500 font-medium' : 'bg-transparent text-zinc-500 border-transparent hover:bg-zinc-800/50 hover:text-zinc-300'}`}>
+                      <motion.div
+                        key={tab.id}
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.15 }}
+                        onClick={() => switchTab(tab.id)}
+                        onContextMenu={(e) => handleTabContextMenu(e, tab)}
+                        className={`group relative flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer border-t-2 transition-all min-w-[120px] max-w-[200px] rounded-t-md ${tab.active ? 'bg-zinc-800 text-zinc-100 border-blue-500 font-medium shadow-lg' : 'bg-transparent text-zinc-500 border-transparent hover:bg-zinc-800/50 hover:text-zinc-300'}`}
+                      >
                           <span className={`w-2 h-2 rounded-full ${tab.type === 'graph' ? 'bg-purple-500' : (tab.type === 'analysis' ? 'bg-green-500' : 'bg-blue-500')} opacity-70`}></span>
                           <span className="truncate flex-1">{tab.title}</span>
-                          <button onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }} className={`opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-white/10 p-0.5 rounded transition-opacity ${tabs.length === 1 ? 'hidden' : ''}`}><Icons.Close className="w-3 h-3" /></button>
-                      </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+                            className={`opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-white/10 p-0.5 rounded transition-opacity ${tabs.length === 1 ? 'hidden' : ''}`}
+                          >
+                            <Icons.Close className="w-3 h-3" />
+                          </button>
+                      </motion.div>
                   ))}
               </div>
-              
+
               {/* Top Right Chat Toggle */}
               <div className="absolute top-2 right-2 z-40">
-                    <button onClick={() => setIsChatOpen(!isChatOpen)} className={`p-1.5 rounded-md transition-colors border ${isChatOpen ? 'text-purple-300 bg-purple-900/40 border-purple-500/50' : 'text-zinc-500 border-transparent hover:bg-zinc-800 hover:text-zinc-300'}`} title="Toggle AI Assistant">
-                        <Icons.Chat className="w-5 h-5" />
-                    </button>
+                <Tooltip content="Toggle AI Assistant (Ctrl+J)">
+                  <button
+                    onClick={() => setIsChatOpen(!isChatOpen)}
+                    className={`p-1.5 rounded-md transition-all border ${isChatOpen ? 'text-purple-300 bg-purple-900/40 border-purple-500/50 shadow-lg' : 'text-zinc-500 border-transparent hover:bg-zinc-800 hover:text-zinc-300'}`}
+                  >
+                    <Icons.Chat className="w-5 h-5" />
+                  </button>
+                </Tooltip>
               </div>
 
               {/* Main Workspace Area */}
               <div className="flex-1 relative overflow-hidden h-full">
                   {isChatOpen ? (
-                      <ResizableSplit direction="horizontal" initialSize="70%" minSize={400} gutterSize={2}>
+                      <PanelGroup direction="horizontal">
+                        <Panel defaultSize={65} minSize={40}>
                           {renderTabContent(tabs.find(t => t.active))}
-                          <AIChatPanelMemo nodes={data.nodes} onFileClick={onNodeDoubleClick} onClose={() => setIsChatOpen(false)} />
-                      </ResizableSplit>
+                        </Panel>
+                        <PanelResizeHandle className="w-1 bg-zinc-800 hover:bg-purple-500 transition-colors duration-200 cursor-col-resize" />
+                        <Panel defaultSize={35} minSize={25} maxSize={50}>
+                          <motion.div
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 20 }}
+                            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                            className="h-full"
+                          >
+                            <AIChatPanelMemo nodes={data.nodes} onFileClick={onNodeDoubleClick} onClose={() => setIsChatOpen(false)} />
+                          </motion.div>
+                        </Panel>
+                      </PanelGroup>
                   ) : (
                       renderTabContent(tabs.find(t => t.active))
                   )}
                   
                   {loading && (
-                      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in duration-200">
-                          <div className="bg-zinc-900 border border-zinc-700/50 p-6 rounded-xl shadow-2xl flex flex-col items-center">
-                              <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                              <span className="text-zinc-200 text-sm font-medium tracking-wide">Processing Project...</span>
-                          </div>
-                      </div>
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center"
+                      >
+                          <motion.div
+                            initial={{ scale: 0.9, y: 20, opacity: 0 }}
+                            animate={{ scale: 1, y: 0, opacity: 1 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 200,
+                              damping: 20,
+                              delay: 0.1
+                            }}
+                            className="bg-zinc-900/95 border border-zinc-700/50 p-8 rounded-2xl shadow-2xl flex flex-col items-center backdrop-blur-xl"
+                          >
+                              {/* Logo */}
+                              <motion.img
+                                src="/content/images/logo.png"
+                                alt="Loading"
+                                className="w-16 h-16 mb-6 drop-shadow-[0_0_20px_rgba(59,130,246,0.6)]"
+                                animate={{
+                                  scale: [1, 1.1, 1],
+                                  filter: [
+                                    'drop-shadow(0 0 20px rgba(59,130,246,0.6))',
+                                    'drop-shadow(0 0 30px rgba(59,130,246,0.9))',
+                                    'drop-shadow(0 0 20px rgba(59,130,246,0.6))',
+                                  ],
+                                }}
+                                transition={{
+                                  duration: 2,
+                                  repeat: Infinity,
+                                  ease: "easeInOut",
+                                }}
+                              />
+
+                              {/* Progress Bar */}
+                              <LiquidProgressBar
+                                progress={loadingProgress}
+                                label="Loading Project"
+                                color="#3b82f6"
+                              />
+                          </motion.div>
+                      </motion.div>
                   )}
               </div>
           </div>
-      </ResizableSplit>
+        </Panel>
+      </PanelGroup>
+
+      {/* Status Bar */}
+      <StatusBar
+        fileCount={data.nodes.length}
+        linkCount={data.links.length}
+        selectedFile={selectedNodeId || undefined}
+        aiStatus={aiStatus}
+        aiProvider={useAI ? 'Gemini' : 'Disabled'}
+      />
     </div>
   );
 };

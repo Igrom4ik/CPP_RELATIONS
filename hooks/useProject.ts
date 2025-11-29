@@ -8,6 +8,7 @@ import { localAnalyzeInteraction } from '../services/localAnalysis';
 export const useProject = () => {
     const [data, setData] = useState<GraphData>({ nodes: [], links: [] });
     const [loading, setLoading] = useState(false);
+    const [loadingProgress, setLoadingProgress] = useState(0);
     const [tabs, setTabs] = useState<Tab[]>([{ id: 'main-graph', title: 'Graph Overview', type: 'graph', active: true }]);
     const [activeTabId, setActiveTabId] = useState<string>('main-graph');
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -45,15 +46,34 @@ export const useProject = () => {
 
     const handleLoadFiles = async (files: FileList) => {
         setLoading(true);
+        setLoadingProgress(0);
+
         try {
+            // Simulate progress for better UX
+            const progressInterval = setInterval(() => {
+                setLoadingProgress(prev => {
+                    if (prev >= 90) return prev;
+                    return prev + Math.random() * 15;
+                });
+            }, 200);
+
             const graphData = await parseProjectFiles(files);
-            setData(graphData);
-            setSelectedNodeId(null);
+
+            clearInterval(progressInterval);
+            setLoadingProgress(100);
+
+            // Show 100% briefly before hiding
+            setTimeout(() => {
+                setData(graphData);
+                setSelectedNodeId(null);
+                setLoading(false);
+                setLoadingProgress(0);
+            }, 500);
         } catch (err) {
             console.error(err);
             alert("Error parsing files.");
-        } finally {
             setLoading(false);
+            setLoadingProgress(0);
         }
     };
 
@@ -118,7 +138,7 @@ export const useProject = () => {
     };
 
     return {
-        data, loading, tabs, activeTabId, selectedNodeId, isChatOpen, setIsChatOpen, useAI, setUseAI,
+        data, loading, loadingProgress, tabs, activeTabId, selectedNodeId, isChatOpen, setIsChatOpen, useAI, setUseAI,
         handleLoadFiles, addTab, closeTab, switchTab, onNodeDoubleClick, onSymbolClick, onLinkClick, onFileSelect, setSelectedNodeId
     };
 };

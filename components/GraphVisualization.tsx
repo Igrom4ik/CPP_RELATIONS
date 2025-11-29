@@ -314,7 +314,16 @@ const GraphVisualization: React.FC<Props> = ({
           event.stopPropagation();
           onNodeClick(d);
       })
-      .style("cursor", "grab");
+      .on("mouseenter", function(event, d) {
+          const color = d.type === 'header' ? '#f97316' : d.type === 'cmake' ? '#22c55e' : d.type === 'json' ? '#eab308' : '#3b82f6';
+          d3.select(this).attr("filter", `drop-shadow(0 0 12px ${color})`);
+          d3.select(this).raise();
+      })
+      .on("mouseleave", function() {
+          d3.select(this).attr("filter", null);
+      })
+      .style("cursor", "grab")
+      .style("transition", "filter 0.2s ease");
 
     // Node Body
     nodes.append("rect")

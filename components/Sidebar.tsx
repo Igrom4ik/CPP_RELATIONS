@@ -88,11 +88,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ nodes, selectedNodeId, onFileS
     return (
         <div className="flex flex-col h-full bg-zinc-900 border-r border-zinc-800">
             {/* Header */}
-            <div className="h-12 flex items-center px-4 border-b border-zinc-800 justify-between flex-shrink-0 bg-zinc-900">
+            <div className="h-12 flex items-center px-3 border-b border-zinc-800 justify-between flex-shrink-0 bg-zinc-900">
                 <div className="flex items-center gap-2 font-bold text-zinc-200 tracking-tight">
-                    <span className="text-blue-500">CPP</span> RELATIONS
+                    <img
+                        src="/content/images/logo.png"
+                        alt="CPP Relations Logo"
+                        className="w-7 h-7 object-contain drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                    />
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-blue-500">CPP</span>
+                        <span className="text-zinc-300">RELATIONS</span>
+                    </div>
                 </div>
-                <button onClick={onShowSettings} className="text-zinc-500 hover:text-white transition-colors p-1 rounded hover:bg-zinc-800" title="Settings">
+                <button onClick={onShowSettings} className="text-zinc-500 hover:text-white transition-colors p-1.5 rounded hover:bg-zinc-800" title="Settings">
                     <Icons.Settings className="w-4 h-4" />
                 </button>
             </div>
