@@ -1,0 +1,5 @@
+{
+  "name": "CPP Relations",
+  "description": "Interactive node graph for C++ projects. Visualizes #include dependencies, uses Gemini to explain code flow between files, and deep-links to CLion.",
+  "requestFramePermissions": []
+}
