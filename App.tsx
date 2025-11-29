@@ -8,6 +8,7 @@ import { localAnalyzeInteraction } from './services/localAnalysis';
 import { loadGraphData, saveGraphData, clearGraphData } from './services/storage';
 import { GraphData, FileNode, InteractionAnalysis, Tab, AISettings, SymbolDefinition, ChatMessage } from './types';
 import { v4 as uuidv4 } from 'uuid';
+import { marked } from 'marked';
 
 declare const Prism: any;
 
@@ -180,17 +181,14 @@ const AIChatPanel: React.FC<{ nodes: FileNode[]; onFileClick: (node: FileNode) =
         // --- CONTEXT GENERATION (OPTIMIZED FOR LOCAL AI) ---
         let context = "Project File Structure (Top 200):\n";
         
-        // Limit structure context to prevent overflow (max 200 files)
         const maxStructureFiles = 200;
         nodes.slice(0, maxStructureFiles).forEach(n => context += `- ${n.id} [${n.type}]\n`);
         if (nodes.length > maxStructureFiles) context += `... and ${nodes.length - maxStructureFiles} more files.\n`;
         
-        // Find referenced files
         const mentionedFiles = nodes.filter(n => input.includes(n.name) || input.includes(n.id));
         if (mentionedFiles.length > 0) {
             context += "\nContent of Referenced Files:\n";
             mentionedFiles.forEach(f => {
-                // TRUNCATE content to safe limit (e.g. 2000 chars per file) to prevent crashing local LLMs
                 const truncatedContent = f.content.slice(0, 2000);
                 context += `\n--- START OF FILE: ${f.id} ---\n${truncatedContent}${f.content.length > 2000 ? '\n...[Content Truncated]...' : ''}\n--- END OF FILE ---\n`;
             });
@@ -203,30 +201,42 @@ const AIChatPanel: React.FC<{ nodes: FileNode[]; onFileClick: (node: FileNode) =
     };
 
     const renderMessageContent = (content: string) => {
-        if (!nodes || nodes.length === 0) return content;
-        const validNodes = nodes.filter(n => n.name.length > 2);
-        if (validNodes.length === 0) return content;
-        const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const pattern = new RegExp(`\\b(${validNodes.map(n => escapeRegExp(n.name)).join('|')})\\b`, 'g');
-        const parts = content.split(pattern);
-
-        return parts.map((part, i) => {
-            const node = validNodes.find(n => n.name === part);
-            if (node) {
-                return (
-                    <button 
-                        key={i} 
-                        onClick={() => onFileClick(node)} 
-                        className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer font-medium inline-flex items-center gap-0.5 align-baseline bg-blue-500/10 px-1 rounded mx-0.5"
-                        title={`Open ${node.id}`}
-                    >
-                        <svg className="w-3 h-3 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        {part}
-                    </button>
-                );
+        // 1. Identify files and wrap them in markdown link format [FileName](file://FileName)
+        // This regex logic matches known files in the project
+        let processedContent = content;
+        if (nodes && nodes.length > 0) {
+            const validNodes = nodes.filter(n => n.name.length > 2);
+            if (validNodes.length > 0) {
+                const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const pattern = new RegExp(`\\b(${validNodes.map(n => escapeRegExp(n.name)).join('|')})\\b`, 'g');
+                // Replace "FileName" with "[FileName](file://FileName)"
+                processedContent = content.replace(pattern, '[$1](file://$1)');
             }
-            return <span key={i}>{part}</span>;
-        });
+        }
+
+        // 2. Parse Markdown to HTML
+        const html = marked.parse(processedContent);
+
+        // 3. Render HTML safely and intercept link clicks
+        return (
+            <div 
+                className="markdown-content"
+                dangerouslySetInnerHTML={{ __html: html as string }}
+                onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    // Check if clicked element is an anchor starting with file://
+                    const anchor = target.closest('a');
+                    if (anchor && anchor.getAttribute('href')?.startsWith('file://')) {
+                        e.preventDefault();
+                        const fileName = anchor.getAttribute('href')?.replace('file://', '');
+                        const node = nodes.find(n => n.name === fileName);
+                        if (node) {
+                            onFileClick(node);
+                        }
+                    }
+                }}
+            />
+        );
     };
 
     return (
@@ -239,12 +249,12 @@ const AIChatPanel: React.FC<{ nodes: FileNode[]; onFileClick: (node: FileNode) =
                 {messages.length === 0 && <p className="text-gray-600 text-xs text-center mt-4">Ask anything about your C++ project.<br/>Mention a filename to let AI read it.</p>}
                 {messages.map(m => (
                     <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[90%] rounded-lg p-2.5 text-sm ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-[#2d2d2d] text-gray-200'}`}>
+                        <div className={`max-w-[95%] rounded-lg p-3 ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-[#2d2d2d] text-gray-200'} shadow-sm`}>
                             {renderMessageContent(m.content)}
                         </div>
                     </div>
                 ))}
-                {isSending && <div className="text-gray-500 text-xs animate-pulse">AI is typing...</div>}
+                {isSending && <div className="text-gray-500 text-xs animate-pulse pl-2">AI is typing...</div>}
             </div>
             <div className="p-2 border-t border-[#333] flex gap-2">
                 <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} className="flex-1 bg-[#1f1f1f] border border-[#333] rounded px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500" placeholder="Ask AI..." />
@@ -261,16 +271,37 @@ const AISettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onSave: 
     const [apiKey, setApiKey] = useState('');
     const [baseUrl, setBaseUrl] = useState('http://localhost:1234');
     const [modelName, setModelName] = useState('local-model');
+    const [preset, setPreset] = useState('local');
+
+    // Preset configurations
+    const presets: Record<string, { url: string, model: string }> = {
+        'local': { url: 'http://localhost:1234', model: 'local-model' },
+        'openai': { url: 'https://api.openai.com', model: 'gpt-4o' },
+        'perplexity': { url: 'https://api.perplexity.ai', model: 'llama-3.1-sonar-large-128k-online' },
+        'mistral': { url: 'https://api.mistral.ai', model: 'mistral-large-latest' },
+        'groq': { url: 'https://api.groq.com/openai', model: 'llama3-70b-8192' },
+        'anthropic': { url: 'https://api.anthropic.com', model: 'claude-3-5-sonnet-20240620' } // Note: Anthropic needs standard adapter logic usually, but some proxies offer openai-compat
+    };
+
+    const isPublicProvider = ['openai', 'perplexity', 'mistral', 'groq', 'anthropic'].includes(preset);
+
+    const handlePresetChange = (key: string) => {
+        setPreset(key);
+        if (presets[key]) {
+            setBaseUrl(presets[key].url);
+            setModelName(presets[key].model);
+        }
+    };
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div className="bg-[#1f1f1f] border border-gray-700 rounded-lg p-6 w-[450px] shadow-2xl">
+            <div className="bg-[#1f1f1f] border border-gray-700 rounded-lg p-6 w-[480px] shadow-2xl">
                 <h3 className="text-lg font-semibold text-white mb-4">AI Configuration</h3>
                 <div className="flex gap-4 mb-4 border-b border-gray-700 pb-2">
                     <button onClick={() => setProvider('gemini')} className={`pb-1 text-sm ${provider === 'gemini' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400'}`}>Google Gemini</button>
-                    <button onClick={() => setProvider('custom')} className={`pb-1 text-sm ${provider === 'custom' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400'}`}>Custom / LM Studio</button>
+                    <button onClick={() => setProvider('custom')} className={`pb-1 text-sm ${provider === 'custom' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400'}`}>Custom / Other API</button>
                 </div>
                 <div className="space-y-4">
                     {provider === 'gemini' ? (
@@ -281,15 +312,42 @@ const AISettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onSave: 
                     ) : (
                         <>
                             <div>
-                                <label className="block text-xs text-gray-500 mb-1">Base URL</label>
-                                <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" />
-                                <span className="text-[10px] text-gray-500 mt-1 block leading-tight">
-                                    Format: <code>http://localhost:1234</code>. The app automatically appends <code>/v1</code>. 
-                                    <br/>Do NOT paste the full path like <code>/chat/completions</code>.
-                                </span>
+                                <label className="block text-xs text-gray-500 mb-1">Provider Preset</label>
+                                <select value={preset} onChange={(e) => handlePresetChange(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none">
+                                    <option value="local">Local (LM Studio / Ollama)</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="perplexity">Perplexity</option>
+                                    <option value="mistral">Mistral AI</option>
+                                    <option value="groq">Groq</option>
+                                    <option value="anthropic">Anthropic (via Compatible Proxy)</option>
+                                </select>
                             </div>
-                            <div><label className="block text-xs text-gray-500 mb-1">Model Name</label><input type="text" value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" /></div>
-                            <div><label className="block text-xs text-gray-500 mb-1">API Key</label><input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" placeholder="Optional for local models" /></div>
+                            
+                            {isPublicProvider && (
+                                <div className="bg-yellow-900/30 border border-yellow-700/50 p-2 rounded text-[11px] text-yellow-200 mb-2">
+                                    <strong>CORS Warning:</strong> Browsers usually block direct connections to {preset}. 
+                                    You might need a <strong>CORS Proxy</strong> or a browser extension to make this work from localhost.
+                                    <br/>For best experience without setup, use <strong>Local AI</strong> or <strong>Gemini</strong>.
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">Base URL</label>
+                                    <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">Model Name</label>
+                                    <input type="text" value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" />
+                                </div>
+                            </div>
+                            <span className="text-[10px] text-gray-500 mt-0 block leading-tight">
+                                System appends <code>/v1</code> automatically. Do NOT paste full path like <code>/chat/completions</code>.
+                            </span>
+                            <div>
+                                <label className="block text-xs text-gray-500 mb-1">API Key</label>
+                                <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" placeholder="Optional (Leave empty for local models)" />
+                            </div>
                         </>
                     )}
                 </div>

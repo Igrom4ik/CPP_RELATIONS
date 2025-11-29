@@ -31,6 +31,14 @@ const normalizeBaseUrl = (url: string) => {
     return cleaned;
 };
 
+const isCorsRestricted = (url: string) => {
+    return url.includes('api.openai.com') || 
+           url.includes('api.anthropic.com') || 
+           url.includes('api.perplexity.ai') ||
+           url.includes('api.mistral.ai') ||
+           url.includes('api.groq.com');
+};
+
 // 1. Google Gemini Implementation
 const analyzeWithGemini = async (prompt: string): Promise<string> => {
     if (!currentSettings.apiKey) throw new Error("API Key missing");
@@ -104,6 +112,9 @@ const analyzeWithCustom = async (prompt: string): Promise<string> => {
         return data.choices[0]?.message?.content || "{}";
     } catch (error: any) {
         if (error.message === 'Failed to fetch') {
+            if (isCorsRestricted(baseUrl)) {
+                 throw new Error(`Browser Error: Cannot connect to ${baseUrl} directly due to CORS security policies.\n\nBrowsers block direct API calls to providers like OpenAI/Perplexity.\n\nSolutions:\n1. Use a Local AI (LM Studio) with CORS enabled.\n2. Use a browser extension that disables CORS (Dev only).\n3. Use a proxy server.`);
+            }
             throw new Error(`Connection Failed to ${baseUrl}. \nCheck: \n1. Is LM Studio/Ollama running? \n2. Is CORS enabled? \n3. Try swapping 'localhost' vs '127.0.0.1'.`);
         }
         throw error;
@@ -162,6 +173,9 @@ const chatWithCustom = async (messages: ChatMessage[], context?: string): Promis
         return data.choices[0]?.message?.content || "";
     } catch (error: any) {
         if (error.message === 'Failed to fetch') {
+            if (isCorsRestricted(baseUrl)) {
+                 throw new Error(`Browser CORS Error: Cannot connect to ${baseUrl} from a browser-based app.\n\nBrowsers block direct calls to Perplexity/OpenAI/Anthropic APIs for security.\n\nSolutions:\n1. Use a CORS Proxy (or browser extension).\n2. Switch to Local AI (LM Studio/Ollama) with CORS enabled.\n3. Use Gemini (supported natively).`);
+            }
             throw new Error(`Connection Failed to ${baseUrl}. \nPossible causes: \n1. Server not running. \n2. CORS blocked (check server logs). \n3. Mixed Content (Using HTTP local server from HTTPS app).`);
         }
         throw error;

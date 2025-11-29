@@ -68,6 +68,81 @@
       .link-flow {
         animation: flowAnimation 1s linear infinite;
       }
+
+      /* Markdown Content Styles */
+      .markdown-content {
+        line-height: 1.6;
+        font-size: 14px;
+      }
+      .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+        margin-top: 1em;
+        margin-bottom: 0.5em;
+        font-weight: 600;
+        color: #e5e7eb;
+      }
+      .markdown-content h1 { font-size: 1.5em; }
+      .markdown-content h2 { font-size: 1.3em; }
+      .markdown-content h3 { font-size: 1.1em; }
+      .markdown-content p {
+        margin-bottom: 0.8em;
+      }
+      .markdown-content ul, .markdown-content ol {
+        margin-bottom: 0.8em;
+        padding-left: 1.5em;
+      }
+      .markdown-content ul { list-style-type: disc; }
+      .markdown-content ol { list-style-type: decimal; }
+      .markdown-content li { margin-bottom: 0.2em; }
+      .markdown-content strong { font-weight: 700; color: #fff; }
+      .markdown-content code {
+        background-color: rgba(255, 255, 255, 0.1);
+        padding: 0.1em 0.3em;
+        border-radius: 3px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9em;
+        color: #e0e7ff;
+      }
+      .markdown-content pre {
+        background-color: #111;
+        padding: 1em;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin-bottom: 1em;
+        border: 1px solid #333;
+      }
+      .markdown-content pre code {
+        background-color: transparent;
+        padding: 0;
+        color: #d1d5db;
+        display: block;
+      }
+      /* Custom file links in markdown */
+      .markdown-content a[href^="file://"] {
+        color: #60a5fa;
+        text-decoration: none;
+        background-color: rgba(59, 130, 246, 0.1);
+        padding: 0 4px;
+        border-radius: 4px;
+        font-family: 'JetBrains Mono', monospace;
+        transition: all 0.2s;
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .markdown-content a[href^="file://"]:hover {
+        background-color: rgba(59, 130, 246, 0.2);
+        text-decoration: underline;
+      }
+      .markdown-content a[href^="file://"]::before {
+        content: '';
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2360a5fa'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' /%3E%3C/svg%3E");
+        background-size: contain;
+        background-repeat: no-repeat;
+      }
     </style>
   <script type="importmap">
 {
@@ -77,7 +152,8 @@
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
     "d3": "https://aistudiocdn.com/d3@^7.9.0",
-    "uuid": "https://aistudiocdn.com/uuid@^13.0.0"
+    "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
+    "marked": "https://aistudiocdn.com/marked@^15.0.0"
   }
 }
 </script>
