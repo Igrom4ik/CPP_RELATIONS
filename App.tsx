@@ -20,9 +20,9 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center h-screen bg-[#0b0c0e] text-white p-4 text-center">
-            <div className="bg-[#1f1f1f] p-8 rounded-xl border border-red-900/50 shadow-2xl max-w-md">
-                <h1 className="text-xl font-bold text-gray-100 mb-2">Critical Error</h1>
+        <div className="flex flex-col items-center justify-center h-screen bg-zinc-950 text-white p-4 text-center">
+            <div className="bg-zinc-900 p-8 rounded-xl border border-red-900/50 shadow-2xl max-w-md">
+                <h1 className="text-xl font-bold text-zinc-100 mb-2">Critical Error</h1>
                 <code className="block bg-black/30 p-2 rounded text-red-400 text-xs mb-4 font-mono">{this.state.error?.message}</code>
                 <Button variant="danger" onClick={this.handleReset} className="w-full">Reset & Reload</Button>
             </div>
@@ -71,17 +71,17 @@ const App: React.FC = () => {
   const renderTabContent = (tab: any) => {
       if (tab.type === 'graph') {
           return (
-            <div className="relative w-full h-full">
+            <div className="relative w-full h-full bg-zinc-950">
                 {/* Floating Graph Controls */}
-                <div className="absolute top-4 right-4 z-20 flex gap-1 bg-[#1f2125]/90 backdrop-blur-sm p-1.5 rounded-lg border border-[#333] shadow-xl">
-                    <button onClick={() => setLinkStyle('bezier')} className={`p-1.5 rounded transition-all ${linkStyle === 'bezier' ? 'bg-blue-600 text-white shadow' : 'text-gray-400 hover:text-white'}`} title="Bezier Curves"><Icons.Graph className="w-4 h-4" /></button>
-                    <button onClick={() => setLinkStyle('orthogonal')} className={`p-1.5 rounded transition-all ${linkStyle === 'orthogonal' ? 'bg-blue-600 text-white shadow' : 'text-gray-400 hover:text-white'}`} title="Circuit Style"><Icons.Code className="w-4 h-4" /></button>
-                    <div className="w-px bg-[#444] mx-1 my-0.5"></div>
-                    <button onClick={() => setAnimateLinks(!animateLinks)} className={`p-1.5 rounded transition-all ${animateLinks ? 'bg-orange-600 text-white shadow' : 'text-gray-400 hover:text-white'}`} title="Toggle Flow Animation"><Icons.Play className="w-4 h-4" /></button>
+                <div className="absolute top-4 right-4 z-20 flex gap-1 bg-zinc-900/90 backdrop-blur-sm p-1.5 rounded-lg border border-zinc-700 shadow-xl">
+                    <button onClick={() => setLinkStyle('bezier')} className={`p-1.5 rounded transition-all ${linkStyle === 'bezier' ? 'bg-blue-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`} title="Bezier Curves"><Icons.Graph className="w-4 h-4" /></button>
+                    <button onClick={() => setLinkStyle('orthogonal')} className={`p-1.5 rounded transition-all ${linkStyle === 'orthogonal' ? 'bg-blue-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`} title="Circuit Style"><Icons.Code className="w-4 h-4" /></button>
+                    <div className="w-px bg-zinc-700 mx-1 my-0.5"></div>
+                    <button onClick={() => setAnimateLinks(!animateLinks)} className={`p-1.5 rounded transition-all ${animateLinks ? 'bg-orange-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`} title="Toggle Flow Animation"><Icons.Play className="w-4 h-4" /></button>
                 </div>
                 {selectedNodeId && (
                     <div className="absolute top-4 left-4 z-20">
-                        <Button variant="secondary" size="sm" onClick={() => setSelectedNodeId(null)} className="shadow-xl border-gray-600">
+                        <Button variant="secondary" size="sm" onClick={() => setSelectedNodeId(null)} className="shadow-xl border-zinc-600 bg-zinc-800 hover:bg-zinc-700 text-zinc-100">
                             <Icons.Close className="w-3 h-3 mr-2" /> Clear Focus
                         </Button>
                     </div>
@@ -89,13 +89,13 @@ const App: React.FC = () => {
                 {selectedNodeId ? (
                     <GraphVisualization data={activeGraphData} onNodeClick={onNodeDoubleClick} onLinkClick={onLinkClick} onSymbolClick={onSymbolClick} searchTerm="" linkStyle={linkStyle} animateLinks={animateLinks} />
                 ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-4 select-none">
-                        <div className="w-20 h-20 rounded-2xl bg-[#1a1b1e] flex items-center justify-center border border-[#2c2e33] shadow-inner">
-                            <Icons.File className="w-10 h-10 text-gray-700" />
+                    <div className="flex flex-col items-center justify-center h-full text-zinc-600 gap-4 select-none">
+                        <div className="w-20 h-20 rounded-2xl bg-zinc-900 flex items-center justify-center border border-zinc-800 shadow-inner">
+                            <Icons.File className="w-10 h-10 text-zinc-700" />
                         </div>
                         <div className="text-center">
-                            <h3 className="text-lg font-medium text-gray-400">Ready to Explore</h3>
-                            <p className="text-xs text-gray-600 mt-1">Select a file from the sidebar to visualize dependencies.</p>
+                            <h3 className="text-lg font-medium text-zinc-500">Ready to Explore</h3>
+                            <p className="text-xs text-zinc-600 mt-1">Select a file from the sidebar to visualize dependencies.</p>
                         </div>
                     </div>
                 )}
@@ -105,11 +105,11 @@ const App: React.FC = () => {
       
       if (tab.type === 'code') {
           return (
-              <div className="flex flex-col h-full bg-[#1e1e1e]">
-                  <div className="bg-[#252526] h-10 px-4 border-b border-[#1f2125] flex justify-between items-center flex-shrink-0">
-                      <span className="text-xs text-gray-400 font-mono flex items-center gap-2"><Icons.File className="w-3 h-3" /> {tab.data.path}</span>
+              <div className="flex flex-col h-full bg-zinc-950">
+                  <div className="bg-zinc-900 h-10 px-4 border-b border-zinc-800 flex justify-between items-center flex-shrink-0">
+                      <span className="text-xs text-zinc-400 font-mono flex items-center gap-2"><Icons.File className="w-3 h-3" /> {tab.data.path}</span>
                       <div className="flex gap-2">
-                          <button onClick={() => { const root = prompt("Enter local project root for CLion:", localStorage.getItem("clion_root") || ""); if (root) localStorage.setItem("clion_root", root); }} className="text-[10px] text-gray-500 hover:text-white underline">Set Root</button>
+                          <button onClick={() => { const root = prompt("Enter local project root for CLion:", localStorage.getItem("clion_root") || ""); if (root) localStorage.setItem("clion_root", root); }} className="text-[10px] text-zinc-500 hover:text-white underline">Set Root</button>
                           <Button variant="secondary" size="sm" className="h-6 text-xs px-2" onClick={() => openInCLion(tab.data.path, tab.data.highlight?.start)}>Open in IDE</Button>
                       </div>
                   </div>
@@ -120,29 +120,29 @@ const App: React.FC = () => {
 
       if (tab.type === 'analysis') {
           return (
-               <div className="flex flex-col h-full bg-[#1e1e1e]">
-                   <div className="bg-[#252526] px-4 py-3 border-b border-[#1f2125] shadow-sm z-10 flex-shrink-0">
+               <div className="flex flex-col h-full bg-zinc-950">
+                   <div className="bg-zinc-900 px-4 py-3 border-b border-zinc-800 shadow-sm z-10 flex-shrink-0">
                        <div className="flex items-center gap-3">
-                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tab.data.isAiGenerated ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-green-500/20 text-green-300 border border-green-500/30'}`}>
+                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tab.data.isAiGenerated ? 'bg-purple-900/30 text-purple-300 border border-purple-500/20' : 'bg-green-900/30 text-green-300 border border-green-500/20'}`}>
                                {tab.data.isAiGenerated ? 'AI Analysis' : 'Local Parser'}
                            </span>
-                           <h2 className="text-gray-200 font-medium text-sm">{tab.data.summary}</h2>
+                           <h2 className="text-zinc-200 font-medium text-sm">{tab.data.summary}</h2>
                        </div>
                    </div>
                    <div className="flex-1 min-h-0">
-                       <ResizableSplit direction="horizontal" initialSize="50%" minSize={100} gutterSize={4}>
-                           <div className="flex flex-col h-full min-w-0 border-r border-[#1f2125]">
-                               <div className="bg-[#1e1e1e] p-2 text-blue-400 text-xs font-bold border-b border-[#333] flex justify-between"><span>SOURCE</span></div>
+                       <ResizableSplit direction="horizontal" initialSize="50%" minSize={100} gutterSize={2}>
+                           <div className="flex flex-col h-full min-w-0 border-r border-zinc-800">
+                               <div className="bg-zinc-950 p-2 text-blue-400 text-xs font-bold border-b border-zinc-800 flex justify-between"><span>SOURCE</span></div>
                                <div className="flex-1 min-h-0 overflow-hidden relative">
                                    <CodeViewer code={tab.data.callerSnippet.code} fileName="cpp" highlightLines={{ start: 1, color: 'blue' }} />
-                                   <div className="absolute bottom-0 left-0 right-0 bg-[#252526]/95 backdrop-blur p-3 text-xs text-gray-400 border-t border-[#333]">{tab.data.callerSnippet.explanation}</div>
+                                   <div className="absolute bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur p-3 text-xs text-zinc-400 border-t border-zinc-800">{tab.data.callerSnippet.explanation}</div>
                                </div>
                            </div>
                            <div className="flex flex-col h-full min-w-0">
-                               <div className="bg-[#1e1e1e] p-2 text-orange-400 text-xs font-bold border-b border-[#333] flex justify-between"><span>TARGET</span></div>
+                               <div className="bg-zinc-950 p-2 text-orange-400 text-xs font-bold border-b border-zinc-800 flex justify-between"><span>TARGET</span></div>
                                <div className="flex-1 min-h-0 overflow-hidden relative">
                                    <CodeViewer code={tab.data.calleeSnippet.code} fileName="cpp" highlightLines={{ start: 1, color: 'orange' }} />
-                                   <div className="absolute bottom-0 left-0 right-0 bg-[#252526]/95 backdrop-blur p-3 text-xs text-gray-400 border-t border-[#333]">{tab.data.calleeSnippet.explanation}</div>
+                                   <div className="absolute bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur p-3 text-xs text-zinc-400 border-t border-zinc-800">{tab.data.calleeSnippet.explanation}</div>
                                </div>
                            </div>
                        </ResizableSplit>
@@ -154,7 +154,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#0b0c0e] text-gray-300 font-sans overflow-hidden">
+    <div className="flex h-screen w-screen bg-zinc-950 text-zinc-300 font-sans overflow-hidden">
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} onSave={handleSaveAIConfig} />
       
       <ResizableSplit direction="horizontal" initialSize={280} minSize={220} maxSize={450} gutterSize={2}>
@@ -167,12 +167,12 @@ const App: React.FC = () => {
             loading={loading}
           />
 
-          <div className="flex flex-col h-full bg-[#0b0c0e] min-w-0 relative">
+          <div className="flex flex-col h-full bg-zinc-950 min-w-0 relative">
               {/* Tab Bar */}
-              <div className="h-10 bg-[#111214] flex items-end px-2 gap-1 border-b border-[#1f2125] pt-1 flex-shrink-0 pr-12 select-none">
+              <div className="h-10 bg-zinc-900 flex items-end px-2 gap-1 border-b border-zinc-800 pt-1 flex-shrink-0 pr-12 select-none">
                   {tabs.map(tab => (
                       <div key={tab.id} onClick={() => switchTab(tab.id)} 
-                           className={`group relative flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer border-t-2 transition-all min-w-[120px] max-w-[200px] rounded-t-md ${tab.active ? 'bg-[#1e1e1e] text-gray-100 border-blue-500 font-medium' : 'bg-transparent text-gray-500 border-transparent hover:bg-[#1e1e1e]/50 hover:text-gray-300'}`}>
+                           className={`group relative flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer border-t-2 transition-all min-w-[120px] max-w-[200px] rounded-t-md ${tab.active ? 'bg-zinc-800 text-zinc-100 border-blue-500 font-medium' : 'bg-transparent text-zinc-500 border-transparent hover:bg-zinc-800/50 hover:text-zinc-300'}`}>
                           <span className={`w-2 h-2 rounded-full ${tab.type === 'graph' ? 'bg-purple-500' : (tab.type === 'analysis' ? 'bg-green-500' : 'bg-blue-500')} opacity-70`}></span>
                           <span className="truncate flex-1">{tab.title}</span>
                           <button onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }} className={`opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-white/10 p-0.5 rounded transition-opacity ${tabs.length === 1 ? 'hidden' : ''}`}><Icons.Close className="w-3 h-3" /></button>
@@ -182,7 +182,7 @@ const App: React.FC = () => {
               
               {/* Top Right Chat Toggle */}
               <div className="absolute top-2 right-2 z-40">
-                    <button onClick={() => setIsChatOpen(!isChatOpen)} className={`p-1.5 rounded-md transition-colors border ${isChatOpen ? 'text-purple-300 bg-purple-900/40 border-purple-500/50' : 'text-gray-500 border-transparent hover:bg-[#2c2e33] hover:text-gray-300'}`} title="Toggle AI Assistant">
+                    <button onClick={() => setIsChatOpen(!isChatOpen)} className={`p-1.5 rounded-md transition-colors border ${isChatOpen ? 'text-purple-300 bg-purple-900/40 border-purple-500/50' : 'text-zinc-500 border-transparent hover:bg-zinc-800 hover:text-zinc-300'}`} title="Toggle AI Assistant">
                         <Icons.Chat className="w-5 h-5" />
                     </button>
               </div>
@@ -200,9 +200,9 @@ const App: React.FC = () => {
                   
                   {loading && (
                       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in duration-200">
-                          <div className="bg-[#1e1e1e] border border-gray-700/50 p-6 rounded-xl shadow-2xl flex flex-col items-center">
+                          <div className="bg-zinc-900 border border-zinc-700/50 p-6 rounded-xl shadow-2xl flex flex-col items-center">
                               <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                              <span className="text-gray-200 text-sm font-medium tracking-wide">Processing Project...</span>
+                              <span className="text-zinc-200 text-sm font-medium tracking-wide">Processing Project...</span>
                           </div>
                       </div>
                   )}

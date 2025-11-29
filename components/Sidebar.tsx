@@ -31,7 +31,7 @@ const buildFileTree = (nodes: FileNode[]): TreeNode => {
 };
 
 const FileTreeItem: React.FC<{ node: TreeNode; depth: number; onFileClick: (node: FileNode) => void; selectedPath: string | null }> = ({ node, depth, onFileClick, selectedPath }) => {
-  const [isOpen, setIsOpen] = useState(depth === 0); // Open root by default
+  const [isOpen, setIsOpen] = useState(depth === 0);
   const handleToggle = (e: React.MouseEvent) => { e.stopPropagation(); setIsOpen(!isOpen); };
   const handleFileClick = (e: React.MouseEvent) => { e.stopPropagation(); if (node.node) onFileClick(node.node); };
   const isSelected = node.type === 'file' && node.path === selectedPath;
@@ -43,7 +43,7 @@ const FileTreeItem: React.FC<{ node: TreeNode; depth: number; onFileClick: (node
       if (node.node?.type === 'json') colorClass = 'bg-yellow-500';
 
     return (
-      <div onClick={handleFileClick} className={`flex items-center gap-2 py-1.5 px-2 cursor-pointer transition-colors text-sm border-l-2 ${isSelected ? 'bg-blue-500/10 text-blue-400 border-blue-500' : 'text-gray-400 border-transparent hover:bg-white/5 hover:text-gray-200 hover:border-gray-700'}`} style={{ paddingLeft: `${depth * 12 + 12}px` }}>
+      <div onClick={handleFileClick} className={`flex items-center gap-2 py-1.5 px-2 cursor-pointer transition-colors text-sm border-l-2 ${isSelected ? 'bg-blue-500/10 text-blue-400 border-blue-500' : 'text-zinc-400 border-transparent hover:bg-zinc-800 hover:text-zinc-200 hover:border-zinc-700'}`} style={{ paddingLeft: `${depth * 12 + 12}px` }}>
         <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colorClass}`}></span>
         <span className="truncate">{node.name}</span>
       </div>
@@ -51,8 +51,8 @@ const FileTreeItem: React.FC<{ node: TreeNode; depth: number; onFileClick: (node
   }
   return (
     <div>
-      <div onClick={handleToggle} className="flex items-center gap-2 py-1.5 px-2 cursor-pointer hover:bg-white/5 text-gray-300 text-sm font-medium select-none transition-colors" style={{ paddingLeft: `${depth * 12 + 12}px` }}>
-        <div className={`transition-transform duration-200 text-gray-500 ${isOpen ? 'rotate-90' : ''}`}>
+      <div onClick={handleToggle} className="flex items-center gap-2 py-1.5 px-2 cursor-pointer hover:bg-zinc-800 text-zinc-300 text-sm font-medium select-none transition-colors" style={{ paddingLeft: `${depth * 12 + 12}px` }}>
+        <div className={`transition-transform duration-200 text-zinc-500 ${isOpen ? 'rotate-90' : ''}`}>
             <Icons.ChevronRight className="w-3 h-3" />
         </div>
         <Icons.FolderOpen className="w-4 h-4 text-yellow-600/80" />
@@ -86,19 +86,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ nodes, selectedNodeId, onFileS
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#111214] border-r border-[#1f2125]">
+        <div className="flex flex-col h-full bg-zinc-900 border-r border-zinc-800">
             {/* Header */}
-            <div className="h-12 flex items-center px-4 border-b border-[#1f2125] justify-between flex-shrink-0 bg-[#161719]">
-                <div className="flex items-center gap-2 font-bold text-gray-200 tracking-tight">
+            <div className="h-12 flex items-center px-4 border-b border-zinc-800 justify-between flex-shrink-0 bg-zinc-900">
+                <div className="flex items-center gap-2 font-bold text-zinc-200 tracking-tight">
                     <span className="text-blue-500">CPP</span> RELATIONS
                 </div>
-                <button onClick={onShowSettings} className="text-gray-500 hover:text-white transition-colors p-1 rounded hover:bg-white/10" title="Settings">
+                <button onClick={onShowSettings} className="text-zinc-500 hover:text-white transition-colors p-1 rounded hover:bg-zinc-800" title="Settings">
                     <Icons.Settings className="w-4 h-4" />
                 </button>
             </div>
 
             {/* Actions */}
-            <div className="p-3 border-b border-[#1f2125] space-y-3 flex-shrink-0 bg-[#111214]">
+            <div className="p-3 border-b border-zinc-800 space-y-3 flex-shrink-0 bg-zinc-900">
                 <Button variant="primary" size="sm" className="w-full justify-center" onClick={() => fileInputRef.current?.click()} isLoading={loading}>
                     Load Source Folder
                 </Button>
@@ -108,11 +108,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ nodes, selectedNodeId, onFileS
                     <input 
                         type="text" 
                         placeholder="Filter files..." 
-                        className="w-full bg-[#1a1b1e] text-gray-300 text-xs px-2 py-1.5 rounded border border-[#2c2e33] focus:border-blue-500 outline-none pl-8 transition-colors group-hover:border-[#3c3e44]" 
+                        className="w-full bg-zinc-950 text-zinc-300 text-xs px-2 py-1.5 rounded border border-zinc-700 focus:border-blue-500 outline-none pl-8 transition-colors group-hover:border-zinc-600" 
                         value={searchTerm} 
                         onChange={(e) => setSearchTerm(e.target.value)} 
                     />
-                    <Icons.Search className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-2" />
+                    <Icons.Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2" />
                 </div>
             </div>
 
@@ -125,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ nodes, selectedNodeId, onFileS
                     ))
                 }
                 {nodes.length === 0 && (
-                    <div className="p-8 text-center text-gray-600 text-xs">
+                    <div className="p-8 text-center text-zinc-600 text-xs">
                         No files loaded.
                     </div>
                 )}

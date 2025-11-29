@@ -136,7 +136,7 @@ const GraphVisualization: React.FC<Props> = ({
             .attr("orient", "auto")
             .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", color);
     };
-    createArrow("arrow-gray", "#6b7280");
+    createArrow("arrow-gray", "#71717a"); // zinc-500
     createArrow("arrow-blue", "#3b82f6");
     createArrow("arrow-orange", "#f97316");
     createArrow("arrow-green", "#22c55e");
@@ -324,7 +324,7 @@ const GraphVisualization: React.FC<Props> = ({
     nodes.append("rect")
       .attr("width", CARD_WIDTH).attr("height", d => d.height)
       .attr("rx", 6)
-      .attr("fill", "#1f2937")
+      .attr("fill", "#27272a") // zinc-800
       .attr("stroke", d => {
           if (searchTerm && d.name.toLowerCase().includes(searchTerm.toLowerCase())) return "#ef4444";
           if (d.type === 'header') return "#f97316";
@@ -383,7 +383,7 @@ const GraphVisualization: React.FC<Props> = ({
                    .on("mouseleave", function() { d3.select(this).attr("opacity", 0); });
 
                 item.append("circle").attr("cx", 14).attr("cy", yPos).attr("r", 2.5).attr("fill", sym.type !== 'function' ? "#f97316" : "#3b82f6");
-                item.append("text").text(sym.name).attr("x", 24).attr("y", yPos + 4).attr("fill", "#d1d5db").style("font-family", "JetBrains Mono, monospace").style("font-size", "10px");
+                item.append("text").text(sym.name).attr("x", 24).attr("y", yPos + 4).attr("fill", "#d4d4d8").style("font-family", "JetBrains Mono, monospace").style("font-size", "10px");
             });
         }
     });
@@ -392,13 +392,13 @@ const GraphVisualization: React.FC<Props> = ({
 
   // If dimensions are 0, return placeholder to avoid SVG errors
   if (dimensions.width === 0) {
-      return <div ref={containerRef} className="w-full h-full bg-[#111111]" />;
+      return <div ref={containerRef} className="w-full h-full bg-zinc-950" />;
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full bg-[#111111] overflow-hidden relative">
-      <div className="absolute inset-0 opacity-10 pointer-events-none" 
-        style={{ backgroundImage: 'linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px)', backgroundSize: '40px 40px' }} 
+    <div ref={containerRef} className="w-full h-full bg-zinc-950 overflow-hidden relative">
+      <div className="absolute inset-0 opacity-5 pointer-events-none" 
+        style={{ backgroundImage: 'linear-gradient(#52525b 1px, transparent 1px), linear-gradient(90deg, #52525b 1px, transparent 1px)', backgroundSize: '40px 40px' }} 
       />
       {/* Use explicit pixels to prevent NotSupportedError on relative lengths */}
       <svg ref={svgRef} width={dimensions.width} height={dimensions.height} className="cursor-grab active:cursor-grabbing" />

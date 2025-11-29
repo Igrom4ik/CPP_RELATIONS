@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 
 interface Props {
   direction: 'horizontal' | 'vertical';
-  initialSize: number | string; // px or %
+  initialSize: number | string;
   minSize?: number;
   maxSize?: number;
-  children: [React.ReactNode, React.ReactNode]; // Exactly two children
+  children: [React.ReactNode, React.ReactNode];
   className?: string;
   gutterSize?: number;
 }
@@ -13,7 +13,7 @@ interface Props {
 const ResizableSplit: React.FC<Props> = ({ 
   direction, 
   initialSize, 
-  minSize = 100, 
+  minSize = 50, 
   maxSize = Infinity, 
   children, 
   className = "",
@@ -23,7 +23,7 @@ const ResizableSplit: React.FC<Props> = ({
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const isHorizontal = direction === 'horizontal'; // Left | Right
+  const isHorizontal = direction === 'horizontal';
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -41,7 +41,6 @@ const ResizableSplit: React.FC<Props> = ({
 
       // Constrain
       const maxAvailable = isHorizontal ? containerRect.width : containerRect.height;
-      // If maxSize is provided use it, otherwise strictly constrain by container minus gutter
       const effectiveMax = Math.min(maxSize, maxAvailable - minSize);
       
       if (newSize < minSize) newSize = minSize;
@@ -57,25 +56,25 @@ const ResizableSplit: React.FC<Props> = ({
     };
 
     if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
       document.body.style.cursor = isHorizontal ? 'col-resize' : 'row-resize';
-      document.body.style.userSelect = 'none'; // Prevent text selection while dragging
+      document.body.style.userSelect = 'none';
     }
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging, isHorizontal, minSize, maxSize]);
 
-  // Convert size to style
   const firstPanelStyle: React.CSSProperties = {
-    flexBasis: typeof size === 'number' ? `${size}px` : size,
+    [isHorizontal ? 'width' : 'height']: typeof size === 'number' ? `${size}px` : size,
     flexGrow: 0,
     flexShrink: 0,
     overflow: 'hidden',
-    position: 'relative'
+    position: 'relative',
+    transition: isDragging ? 'none' : 'width 0.1s ease, height 0.1s ease'
   };
 
   return (
@@ -89,18 +88,16 @@ const ResizableSplit: React.FC<Props> = ({
       
       {/* Gutter */}
       <div
-        className={`relative z-50 flex-shrink-0 bg-[#1f2125] hover:bg-blue-500 transition-colors bg-opacity-50 flex items-center justify-center
-          ${isHorizontal ? 'cursor-col-resize w-[4px] border-l border-r border-[#000]' : 'cursor-row-resize h-[4px] border-t border-b border-[#000]'}
-          ${isDragging ? 'bg-blue-600' : ''}
+        className={`relative z-50 flex-shrink-0 flex items-center justify-center transition-colors
+          ${isHorizontal ? 'cursor-col-resize border-l border-r border-zinc-950 hover:bg-blue-600' : 'cursor-row-resize border-t border-b border-zinc-950 hover:bg-blue-600'}
+          ${isDragging ? 'bg-blue-600' : 'bg-zinc-800'}
         `}
         style={{ [isHorizontal ? 'width' : 'height']: `${gutterSize}px` }}
-        onMouseDown={() => setIsDragging(true)}
+        onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }}
       >
-          {/* Handle Icon */}
-          <div className={`bg-gray-500 rounded-full opacity-0 hover:opacity-100 transition-opacity ${isHorizontal ? 'w-[2px] h-4' : 'w-4 h-[2px]'}`}></div>
       </div>
 
-      <div className="flex-1 overflow-hidden relative min-w-0 min-h-0">
+      <div className="flex-1 overflow-hidden relative min-w-0 min-h-0 bg-zinc-950">
         {children[1]}
       </div>
     </div>
