@@ -363,14 +363,15 @@ export const parseProjectFiles = async (files: FileList): Promise<GraphData> => 
     
     // Determine type
     let type: FileNode['type'] = 'other';
-    if (path.match(/\.(h|hpp|hh)$/i)) type = 'header';
-    else if (path.match(/\.(cpp|cxx|cc|c)$/i)) type = 'source';
+    // Broaden supported C/C++ extensions
+    if (path.match(/\.(h|hpp|hh|hxx|h\+\+|inl|ipp|tpp|ixx|cuh)$/i)) type = 'header';
+    else if (path.match(/\.(cpp|cxx|cc|c|c\+\+|cu|cppm)$/i)) type = 'source';
     else if (path.match(/\.(glsl|vert|frag|geom|comp|tesc|tese)$/i)) type = 'glsl';
     else if (path.match(/CMakeLists\.txt$/i) || path.match(/\.cmake$/i)) type = 'cmake';
     else if (path.match(/\.json$/i)) type = 'json';
 
     // Only process supported extensions
-    if (type === 'other' && !path.match(/\.(cpp|cxx|cc|c|h|hpp|hh|cmake|json|txt|glsl|vert|frag|geom|comp|tesc|tese)$/i)) continue;
+    if (type === 'other' && !path.match(/\.(cpp|cxx|cc|c|c\+\+|cu|cppm|h|hpp|hh|hxx|h\+\+|inl|ipp|tpp|ixx|cuh|cmake|json|txt|glsl|vert|frag|geom|comp|tesc|tese)$/i)) continue;
 
     const text = await file.text();
 
@@ -426,29 +427,32 @@ export const parseProjectFiles = async (files: FileList): Promise<GraphData> => 
 
     // --- C++ Includes ---
     if (node.type === 'header' || node.type === 'source') {
-        const includeRegex = /#include\s+["<]([^">]+)[">]/g;
+        const includeRegex = /#include\s+(["<]([^">]+)[">])/g;
         let match;
 
         while ((match = includeRegex.exec(content)) !== null) {
-          const includePath = match[1];
+          const includeRaw = match[1];
+          const includePath = match[2];
+          const includeLine = content.substring(0, match.index).split(/\r?\n/).length;
+          const normalizedInclude = normalizePath(includePath);
           // Smart resolve: 
           // 1. Check exact relative path
           // 2. Check suffix match (common for includes like "Components/Camera.h")
           // 3. Check filename match
           
-          let targetNode = nodes.find(n => n.id === includePath); // Exact?
+          let targetNode = nodes.find(n => n.id === normalizedInclude); // Exact?
           
           if (!targetNode && dir) {
               // Try relative to current file
-              targetNode = nodes.find(n => n.id === `${dir}/${includePath}`); 
+              targetNode = nodes.find(n => n.id === `${dir}/${normalizedInclude}`); 
           }
 
           if (!targetNode) {
-              targetNode = nodes.find(n => n.id.endsWith(includePath));
+              targetNode = nodes.find(n => n.id.endsWith(normalizedInclude));
           }
           
           if (!targetNode) {
-              const potentialMatches = nodes.filter(n => n.name === includePath.split('/').pop());
+              const potentialMatches = nodes.filter(n => n.name === normalizedInclude.split('/').pop());
               if (potentialMatches.length === 1) targetNode = potentialMatches[0];
           }
 
@@ -456,6 +460,14 @@ export const parseProjectFiles = async (files: FileList): Promise<GraphData> => 
             // Reverse direction: header defines → cpp depends
             // When Application.cpp includes Application.hpp, arrow goes FROM header TO cpp
             addLink(targetNode.id, node.id);
+
+            // Also surface this interaction inside the node's symbol list
+            node.exportedSymbols = node.exportedSymbols || [];
+            node.exportedSymbols.push({
+                name: `#include ${targetNode.name}`,
+                line: includeLine,
+                type: 'include'
+            });
           }
         }
         
