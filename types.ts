@@ -2,14 +2,14 @@
 export interface SymbolDefinition {
   name: string;
   line: number;
-  type: 'class' | 'function' | 'struct';
+  type: 'class' | 'function' | 'struct' | 'uniform' | 'attribute' | 'varying' | 'target' | 'key';
 }
 
 export interface FileNode {
   id: string; // Full relative path
   name: string;
   content: string;
-  type: 'source' | 'header' | 'cmake' | 'json' | 'other';
+  type: 'source' | 'header' | 'cmake' | 'json' | 'glsl' | 'other';
   group: string; // Folder name for clustering
   size?: number;
   lines?: number;

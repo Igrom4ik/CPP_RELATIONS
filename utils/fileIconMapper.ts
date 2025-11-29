@@ -20,6 +20,15 @@ const FILE_ICON_MAP: Record<string, string> = {
   'hxx': 'file_type_cppheader',
   'h++': 'file_type_cppheader',
 
+  // GLSL / Shaders
+  'glsl': 'file_type_glsl',
+  'vert': 'file_type_glsl',
+  'frag': 'file_type_glsl',
+  'geom': 'file_type_glsl',
+  'comp': 'file_type_glsl',
+  'tesc': 'file_type_glsl',
+  'tese': 'file_type_glsl',
+
   // Build & Config
   'cmake': 'file_type_cmake',
   'json': 'file_type_json',

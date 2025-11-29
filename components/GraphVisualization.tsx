@@ -141,6 +141,7 @@ const GraphVisualization: React.FC<Props> = ({
     createArrow("arrow-orange", "#f97316");
     createArrow("arrow-green", "#22c55e");
     createArrow("arrow-yellow", "#eab308");
+    createArrow("arrow-purple", "#a855f7"); // purple-500 for GLSL
 
     // Gradients for Electric Flow
     const createGradient = (id: string, color: string) => {
@@ -154,6 +155,7 @@ const GraphVisualization: React.FC<Props> = ({
     createGradient("grad-header", "#f97316"); // Orange
     createGradient("grad-cmake", "#22c55e");  // Green
     createGradient("grad-json", "#eab308");   // Yellow
+    createGradient("grad-glsl", "#a855f7");   // Purple
 
     const g = svg.append("g");
 
@@ -231,6 +233,7 @@ const GraphVisualization: React.FC<Props> = ({
         if (d.source.type === 'header') return "#f97316";
         if (d.source.type === 'cmake') return "#22c55e";
         if (d.source.type === 'json') return "#eab308";
+        if (d.source.type === 'glsl') return "#a855f7";
         return "#3b82f6";
     };
 
@@ -238,6 +241,7 @@ const GraphVisualization: React.FC<Props> = ({
         if (d.source.type === 'header') return "url(#arrow-orange)";
         if (d.source.type === 'cmake') return "url(#arrow-green)";
         if (d.source.type === 'json') return "url(#arrow-yellow)";
+        if (d.source.type === 'glsl') return "url(#arrow-purple)";
         return "url(#arrow-blue)";
     };
 
@@ -315,7 +319,7 @@ const GraphVisualization: React.FC<Props> = ({
           onNodeClick(d);
       })
       .on("mouseenter", function(event, d) {
-          const color = d.type === 'header' ? '#f97316' : d.type === 'cmake' ? '#22c55e' : d.type === 'json' ? '#eab308' : '#3b82f6';
+          const color = d.type === 'header' ? '#f97316' : d.type === 'cmake' ? '#22c55e' : d.type === 'json' ? '#eab308' : d.type === 'glsl' ? '#a855f7' : '#3b82f6';
           d3.select(this).attr("filter", `drop-shadow(0 0 12px ${color})`);
           d3.select(this).raise();
       })
@@ -339,6 +343,7 @@ const GraphVisualization: React.FC<Props> = ({
           if (d.type === 'header') return "#f97316";
           if (d.type === 'cmake') return "#22c55e";
           if (d.type === 'json') return "#eab308";
+          if (d.type === 'glsl') return "#a855f7";
           return "#3b82f6";
       })
       .attr("stroke-width", d => (searchTerm && d.name.toLowerCase().includes(searchTerm.toLowerCase())) ? 3 : 1);
@@ -350,6 +355,7 @@ const GraphVisualization: React.FC<Props> = ({
           if (d.type === 'header') return "#f97316";
           if (d.type === 'cmake') return "#22c55e";
           if (d.type === 'json') return "#eab308";
+          if (d.type === 'glsl') return "#a855f7";
           return "#3b82f6";
       })
       .attr("fill-opacity", 0.2);
@@ -391,7 +397,22 @@ const GraphVisualization: React.FC<Props> = ({
                    .on("mouseenter", function() { d3.select(this).attr("opacity", 0.1); })
                    .on("mouseleave", function() { d3.select(this).attr("opacity", 0); });
 
-                item.append("circle").attr("cx", 14).attr("cy", yPos).attr("r", 2.5).attr("fill", sym.type !== 'function' ? "#f97316" : "#3b82f6");
+                // Symbol indicator with appropriate color
+                const symbolColor = (() => {
+                    switch(sym.type) {
+                        case 'function': return "#3b82f6"; // blue
+                        case 'class':
+                        case 'struct': return "#f97316"; // orange
+                        case 'uniform': return "#a855f7"; // purple
+                        case 'attribute': return "#22c55e"; // green
+                        case 'varying': return "#eab308"; // yellow
+                        case 'target': return "#22c55e"; // green for CMake targets
+                        case 'key': return "#eab308"; // yellow for JSON keys
+                        default: return "#71717a"; // zinc-500
+                    }
+                })();
+
+                item.append("circle").attr("cx", 14).attr("cy", yPos).attr("r", 2.5).attr("fill", symbolColor);
                 item.append("text").text(sym.name).attr("x", 24).attr("y", yPos + 4).attr("fill", "#d4d4d8").style("font-family", "JetBrains Mono, monospace").style("font-size", "10px");
             });
         }
