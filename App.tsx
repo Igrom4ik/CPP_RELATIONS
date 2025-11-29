@@ -115,7 +115,7 @@ const CodeViewer: React.FC<{ code: string; fileName: string; highlightLines?: { 
                     <div className="flex-1 bg-[#1e1e1e] relative">
                          {highlightLines && (
                             <div className="absolute w-full pointer-events-none z-0"
-                                style={{ top: `${(highlightLines.start - 1) * 20 + 16}px`, height: '20px', backgroundColor: highlightLines.color === 'blue' ? 'rgba(38, 79, 120, 0.5)' : 'rgba(78, 60, 13, 0.5)', borderLeft: `2px solid ${highlightLines.color === 'blue' ? '#3b82f6' : '#f59e0b'}`, width: '100%' }}
+                                style={{ top: `${(highlightLines.start - 1) * 20 + 16}px`, height: '20px', backgroundColor: highlightLines.color === 'blue' ? 'rgba(38, 79, 120, 0.6)' : 'rgba(245, 158, 11, 0.4)', borderLeft: `2px solid ${highlightLines.color === 'blue' ? '#3b82f6' : '#f59e0b'}`, width: '100%' }}
                             />
                          )}
                          <pre className="!m-0 !p-4 !bg-transparent z-10 relative !overflow-visible">
@@ -271,6 +271,7 @@ const AISettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onSave: 
     const [apiKey, setApiKey] = useState('');
     const [baseUrl, setBaseUrl] = useState('http://localhost:1234');
     const [modelName, setModelName] = useState('local-model');
+    const [corsProxy, setCorsProxy] = useState('');
     const [preset, setPreset] = useState('local');
 
     // Preset configurations
@@ -280,10 +281,8 @@ const AISettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onSave: 
         'perplexity': { url: 'https://api.perplexity.ai', model: 'llama-3.1-sonar-large-128k-online' },
         'mistral': { url: 'https://api.mistral.ai', model: 'mistral-large-latest' },
         'groq': { url: 'https://api.groq.com/openai', model: 'llama3-70b-8192' },
-        'anthropic': { url: 'https://api.anthropic.com', model: 'claude-3-5-sonnet-20240620' } // Note: Anthropic needs standard adapter logic usually, but some proxies offer openai-compat
+        'anthropic': { url: 'https://api.anthropic.com', model: 'claude-3-5-sonnet-20240620' }
     };
-
-    const isPublicProvider = ['openai', 'perplexity', 'mistral', 'groq', 'anthropic'].includes(preset);
 
     const handlePresetChange = (key: string) => {
         setPreset(key);
@@ -319,18 +318,10 @@ const AISettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onSave: 
                                     <option value="perplexity">Perplexity</option>
                                     <option value="mistral">Mistral AI</option>
                                     <option value="groq">Groq</option>
-                                    <option value="anthropic">Anthropic (via Compatible Proxy)</option>
+                                    <option value="anthropic">Anthropic</option>
                                 </select>
                             </div>
                             
-                            {isPublicProvider && (
-                                <div className="bg-yellow-900/30 border border-yellow-700/50 p-2 rounded text-[11px] text-yellow-200 mb-2">
-                                    <strong>CORS Warning:</strong> Browsers usually block direct connections to {preset}. 
-                                    You might need a <strong>CORS Proxy</strong> or a browser extension to make this work from localhost.
-                                    <br/>For best experience without setup, use <strong>Local AI</strong> or <strong>Gemini</strong>.
-                                </div>
-                            )}
-
                             <div className="grid grid-cols-2 gap-2">
                                 <div>
                                     <label className="block text-xs text-gray-500 mb-1">Base URL</label>
@@ -344,6 +335,13 @@ const AISettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onSave: 
                             <span className="text-[10px] text-gray-500 mt-0 block leading-tight">
                                 System appends <code>/v1</code> automatically. Do NOT paste full path like <code>/chat/completions</code>.
                             </span>
+                            
+                            <div>
+                                <label className="block text-xs text-gray-500 mb-1">CORS Proxy (Optional)</label>
+                                <input type="text" value={corsProxy} onChange={e => setCorsProxy(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" placeholder="e.g. https://corsproxy.io/? (Leave empty for local)" />
+                                <span className="text-[10px] text-gray-500">Required for direct browser connection to Perplexity/OpenAI/Anthropic.</span>
+                            </div>
+
                             <div>
                                 <label className="block text-xs text-gray-500 mb-1">API Key</label>
                                 <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-[#111] border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none" placeholder="Optional (Leave empty for local models)" />
@@ -353,7 +351,7 @@ const AISettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onSave: 
                 </div>
                 <div className="flex justify-end gap-2 mt-6">
                     <button onClick={onClose} className="px-3 py-1.5 text-xs text-gray-400 hover:text-white">Cancel</button>
-                    <button onClick={() => { onSave({ provider, apiKey: apiKey || (process.env.API_KEY || ''), baseUrl, modelName }); onClose(); }} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded">Save Configuration</button>
+                    <button onClick={() => { onSave({ provider, apiKey: apiKey || (process.env.API_KEY || ''), baseUrl, modelName, corsProxy }); onClose(); }} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded">Save Configuration</button>
                 </div>
             </div>
         </div>
@@ -587,7 +585,7 @@ const App: React.FC = () => {
                      <img src="https://placehold.co/100x30/transparent/white?text=CPP+LOGO" alt="CPP Relations" className="h-8 object-contain" />
                   </div>
                   <button onClick={() => setShowSettings(true)} className="text-gray-500 hover:text-white" title="Settings">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                   </button>
               </div>
 

@@ -1,3 +1,4 @@
+
 export interface SymbolDefinition {
   name: string;
   line: number;
@@ -54,6 +55,7 @@ export interface AISettings {
   apiKey: string;
   baseUrl?: string; // For Custom/LM Studio (e.g., http://localhost:1234/v1)
   modelName?: string; // For Custom
+  corsProxy?: string; // Optional CORS proxy prefix (e.g. https://corsproxy.io/?)
 }
 
 export interface ChatMessage {
