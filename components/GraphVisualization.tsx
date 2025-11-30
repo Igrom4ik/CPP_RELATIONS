@@ -35,6 +35,7 @@ const GraphVisualization: React.FC<Props> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   // Handle Resize
   useEffect(() => {
@@ -157,6 +158,12 @@ const GraphVisualization: React.FC<Props> = ({
     createGradient("grad-json", "#eab308");   // Yellow
     createGradient("grad-glsl", "#a855f7");   // Purple
 
+    // Ensure SVG namespaces for broad animateMotion/mpath support (xlink)
+    // Some browsers require xlink:href on <mpath> even if href works in others
+    svg
+      .attr("xmlns", "http://www.w3.org/2000/svg")
+      .attr("xmlns:xlink", "http://www.w3.org/1999/xlink");
+
     const g = svg.append("g");
 
     // Zoom
@@ -167,23 +174,41 @@ const GraphVisualization: React.FC<Props> = ({
     svg.call(zoom);
 
     // --- LINKS ---
-    // Prepare link data mapping
-    const linksData = data.links.map(l => {
+    // Prepare link data mapping (file-level + optional expanded symbol fan-out)
+    type LinkDatum = { source: any, target: any, id: string, rawId: string, targetSymbolIndex?: number };
+    const baseLinks: LinkDatum[] = data.links.map(l => {
         const src = layoutNodes.find(n => n.id === l.source);
         const tgt = layoutNodes.find(n => n.id === l.target);
-        if (!src || !tgt) return null;
-        // Use getSafeId to ensure valid selectors
-        // Add linkStyle to ID to force complete re-render of path and animation when style changes
+        if (!src || !tgt) return null as any;
         const safeBaseId = getSafeId(`${src.id}-${tgt.id}`);
         const uniqueId = `${safeBaseId}-${linkStyle}`;
         return { source: src, target: tgt, id: uniqueId, rawId: `${src.id}-${tgt.id}` };
-    }).filter(Boolean) as {source: any, target: any, id: string, rawId: string}[];
+    }).filter(Boolean) as LinkDatum[];
+
+    const expandedFanOut: LinkDatum[] = [];
+    baseLinks.forEach(bl => {
+        if (expandedNodes.has(bl.source.id)) {
+            const symbols: SymbolDefinition[] = bl.target.exportedSymbols || [];
+            // choose functions/classes/structs/targets as "functions" group
+            const targetSymbols = symbols.filter(s => ['function','class','struct','target'].includes(s.type as any));
+            targetSymbols.forEach((_, idx) => {
+                const safeBaseId = getSafeId(`${bl.source.id}-${bl.target.id}-sym-${idx}`);
+                const uniqueId = `${safeBaseId}-${linkStyle}`;
+                expandedFanOut.push({ source: bl.source, target: bl.target, id: uniqueId, rawId: `${bl.source.id}-${bl.target.id}-sym-${idx}`, targetSymbolIndex: idx });
+            });
+        }
+    });
+
+    const linksData: LinkDatum[] = [...baseLinks, ...expandedFanOut];
 
     const linkPath = (d: any) => {
           const sx = d.source.x + CARD_WIDTH; 
           const sy = d.source.y + CARD_HEADER_HEIGHT / 2; 
           const tx = d.target.x; 
-          const ty = d.target.y + CARD_HEADER_HEIGHT / 2;
+          // If targeting a specific symbol row, align to that row; else to header mid
+          const ty = (typeof d.targetSymbolIndex === 'number')
+              ? (d.target.y + CARD_HEADER_HEIGHT + 16 + (d.targetSymbolIndex as number) * ROW_HEIGHT)
+              : (d.target.y + CARD_HEADER_HEIGHT / 2);
           
           if (linkStyle === 'orthogonal') {
               const dx = tx - sx;
@@ -285,7 +310,9 @@ const GraphVisualization: React.FC<Props> = ({
             .attr("repeatCount", "indefinite")
             .attr("rotate", "auto")
             .append("mpath")
-            .attr("href", d => `#${d.id}`); // Link to the path ID
+            // Provide both href and xlink:href for compatibility with different SVG engines
+            .attr("href", d => `#${d.id}`) // modern SVG2
+            .attr("xlink:href", d => `#${d.id}`); // legacy compatibility
         });
     }
 
@@ -365,6 +392,37 @@ const GraphVisualization: React.FC<Props> = ({
       .attr("x", 10).attr("y", 19)
       .attr("fill", "#fff")
       .style("font-family", "JetBrains Mono, monospace").style("font-weight", "600").style("font-size", "12px");
+
+    // Expand button in header (top-right)
+    const headerBtn = nodes.append("g")
+      .attr("class", "no-drag")
+      .style("cursor", "pointer")
+      .on("click", (event, d: any) => {
+        event.stopPropagation();
+        const next = new Set(expandedNodes);
+        if (next.has(d.id)) next.delete(d.id); else next.add(d.id);
+        setExpandedNodes(next);
+      });
+
+    headerBtn.append("rect")
+      .attr("x", CARD_WIDTH - 22)
+      .attr("y", 6)
+      .attr("width", 16)
+      .attr("height", 16)
+      .attr("rx", 4)
+      .attr("fill", "#18181b")
+      .attr("stroke", "#3f3f46")
+      .attr("opacity", 0.9);
+
+    // plus/minus icon
+    headerBtn.append("path")
+      .attr("d", d => expandedNodes.has((d as any).id)
+          ? `M ${CARD_WIDTH - 19} 14 H ${CARD_WIDTH - 9}` // minus
+          : `M ${CARD_WIDTH - 19} 14 H ${CARD_WIDTH - 9} M ${CARD_WIDTH - 14} 9 V 19`) // plus
+      .attr("stroke", "#d4d4d8")
+      .attr("stroke-width", 1.5)
+      .attr("fill", "none")
+      .attr("stroke-linecap", "round");
     
     // Symbols List
     nodes.each(function(d) {
@@ -418,7 +476,7 @@ const GraphVisualization: React.FC<Props> = ({
         }
     });
 
-  }, [layoutNodes, dimensions, searchTerm, linkStyle, animateLinks]);
+  }, [layoutNodes, dimensions, searchTerm, linkStyle, animateLinks, expandedNodes]);
 
   // If dimensions are 0, return placeholder to avoid SVG errors
   if (dimensions.width === 0) {
