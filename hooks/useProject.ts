@@ -137,8 +137,14 @@ export const useProject = () => {
         if (graphTab) switchTab(graphTab.id); else addTab({ id: 'main-graph', title: 'Graph', type: 'graph' });
     };
 
+    // Позволяет напрямую установить данные графа (используется при восстановлении после 3D режима)
+    const setGraphData = (g: GraphData) => {
+        setData(g);
+    };
+
     return {
         data, loading, loadingProgress, tabs, activeTabId, selectedNodeId, isChatOpen, setIsChatOpen, useAI, setUseAI,
         handleLoadFiles, addTab, closeTab, switchTab, onNodeDoubleClick, onSymbolClick, onLinkClick, onFileSelect, setSelectedNodeId
+        , setGraphData
     };
 };
