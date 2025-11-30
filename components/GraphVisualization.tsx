@@ -37,6 +37,29 @@ const GraphVisualization: React.FC<Props> = ({
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
+  // Persist expanded nodes between re-renders/sessions
+  const EXPANDED_STORAGE_KEY = 'cpp_relations_expanded_nodes_v1';
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(EXPANDED_STORAGE_KEY);
+      if (raw) {
+        const saved: string[] = JSON.parse(raw);
+        // keep only ids that still exist in current data
+        const existing = new Set(data.nodes.map(n => n.id));
+        const filtered = saved.filter(id => existing.has(id));
+        setExpandedNodes(new Set(filtered));
+      }
+    } catch {}
+    // run only on initial mount and when data.nodes list identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.nodes]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify(Array.from(expandedNodes)));
+    } catch {}
+  }, [expandedNodes]);
+
   // Handle Resize
   useEffect(() => {
     const updateSize = () => {
@@ -124,6 +147,28 @@ const GraphVisualization: React.FC<Props> = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
+    // --- Color helpers ---
+    const getNodeColor = (type: any) => {
+        if (type === 'header') return "#f97316";   // orange
+        if (type === 'cmake') return "#22c55e";    // green
+        if (type === 'json') return "#eab308";     // yellow
+        if (type === 'glsl') return "#a855f7";     // purple
+        return "#3b82f6";                          // blue (default for source/other)
+    };
+    const getSymbolColor = (symType?: string) => {
+        switch(symType) {
+            case 'function': return "#3b82f6";
+            case 'class':
+            case 'struct': return "#f97316";
+            case 'uniform': return "#a855f7";
+            case 'attribute': return "#22c55e";
+            case 'varying': return "#eab308";
+            case 'target': return "#22c55e";
+            case 'key': return "#eab308";
+            default: return "#71717a";
+        }
+    };
+
     // --- DEFS (Gradients & Markers) ---
     const defs = svg.append("defs");
     
@@ -145,18 +190,7 @@ const GraphVisualization: React.FC<Props> = ({
     createArrow("arrow-purple", "#a855f7"); // purple-500 for GLSL
 
     // Gradients for Electric Flow
-    const createGradient = (id: string, color: string) => {
-        const grad = defs.append("linearGradient")
-            .attr("id", id)
-            .attr("gradientUnits", "userSpaceOnUse");
-        grad.append("stop").attr("offset", "0%").attr("stop-color", color).attr("stop-opacity", 0.3);
-        grad.append("stop").attr("offset", "100%").attr("stop-color", color).attr("stop-opacity", 1);
-    };
-    createGradient("grad-source", "#3b82f6"); // Blue
-    createGradient("grad-header", "#f97316"); // Orange
-    createGradient("grad-cmake", "#22c55e");  // Green
-    createGradient("grad-json", "#eab308");   // Yellow
-    createGradient("grad-glsl", "#a855f7");   // Purple
+    // Note: pre-baked gradients kept for potential shading; per-link gradients will be created below
 
     // Ensure SVG namespaces for broad animateMotion/mpath support (xlink)
     // Some browsers require xlink:href on <mpath> even if href works in others
@@ -175,7 +209,7 @@ const GraphVisualization: React.FC<Props> = ({
 
     // --- LINKS ---
     // Prepare link data mapping (file-level + optional expanded symbol fan-out)
-    type LinkDatum = { source: any, target: any, id: string, rawId: string, targetSymbolIndex?: number };
+    type LinkDatum = { source: any, target: any, id: string, rawId: string, targetSymbolIndex?: number, startColor?: string, endColor?: string };
     const baseLinks: LinkDatum[] = data.links.map(l => {
         const src = layoutNodes.find(n => n.id === l.source);
         const tgt = layoutNodes.find(n => n.id === l.target);
@@ -191,15 +225,21 @@ const GraphVisualization: React.FC<Props> = ({
             const symbols: SymbolDefinition[] = bl.target.exportedSymbols || [];
             // choose functions/classes/structs/targets as "functions" group
             const targetSymbols = symbols.filter(s => ['function','class','struct','target'].includes(s.type as any));
-            targetSymbols.forEach((_, idx) => {
+            targetSymbols.forEach((sym, idx) => {
                 const safeBaseId = getSafeId(`${bl.source.id}-${bl.target.id}-sym-${idx}`);
                 const uniqueId = `${safeBaseId}-${linkStyle}`;
-                expandedFanOut.push({ source: bl.source, target: bl.target, id: uniqueId, rawId: `${bl.source.id}-${bl.target.id}-sym-${idx}`, targetSymbolIndex: idx });
+                expandedFanOut.push({ source: bl.source, target: bl.target, id: uniqueId, rawId: `${bl.source.id}-${bl.target.id}-sym-${idx}`, targetSymbolIndex: idx, endColor: getSymbolColor(sym.type) });
             });
         }
     });
 
-    const linksData: LinkDatum[] = [...baseLinks, ...expandedFanOut];
+    const linksData: LinkDatum[] = [...baseLinks, ...expandedFanOut]
+      .map(ld => {
+        const startColor = getNodeColor(ld.source.type);
+        // if endColor precomputed from symbol, keep; else use target node color
+        const endColor = ld.endColor || getNodeColor(ld.target.type);
+        return { ...ld, startColor, endColor };
+      });
 
     const linkPath = (d: any) => {
           const sx = d.source.x + CARD_WIDTH; 
@@ -254,20 +294,37 @@ const GraphVisualization: React.FC<Props> = ({
           }
     };
 
-    const getLinkColor = (d: any) => {
-        if (d.source.type === 'header') return "#f97316";
-        if (d.source.type === 'cmake') return "#22c55e";
-        if (d.source.type === 'json') return "#eab308";
-        if (d.source.type === 'glsl') return "#a855f7";
-        return "#3b82f6";
-    };
+    const getLinkColor = (d: any) => d.startColor || getNodeColor(d.source.type);
 
-    const getArrowId = (d: any) => {
-        if (d.source.type === 'header') return "url(#arrow-orange)";
-        if (d.source.type === 'cmake') return "url(#arrow-green)";
-        if (d.source.type === 'json') return "url(#arrow-yellow)";
-        if (d.source.type === 'glsl') return "url(#arrow-purple)";
-        return "url(#arrow-blue)";
+    const getMarkerByColor = (color: string) => {
+        switch(color.toLowerCase()) {
+            case '#f97316': return 'url(#arrow-orange)';
+            case '#22c55e': return 'url(#arrow-green)';
+            case '#eab308': return 'url(#arrow-yellow)';
+            case '#a855f7': return 'url(#arrow-purple)';
+            case '#3b82f6': return 'url(#arrow-blue)';
+            default: return 'url(#arrow-gray)';
+        }
+    };
+    const getArrowId = (d: any) => getMarkerByColor(d.endColor || getNodeColor(d.target.type));
+
+    // Create per-link gradients
+    const addGradientForLink = (d: any) => {
+        const gradId = `grad-${d.id}`;
+        const grad = defs.append('linearGradient')
+            .attr('id', gradId)
+            .attr('gradientUnits', 'userSpaceOnUse');
+        // set coordinates along the link approx start->end
+        const sx = d.source.x + CARD_WIDTH;
+        const sy = d.source.y + CARD_HEADER_HEIGHT / 2;
+        const tx = d.target.x;
+        const ty = (typeof d.targetSymbolIndex === 'number')
+            ? (d.target.y + CARD_HEADER_HEIGHT + 16 + (d.targetSymbolIndex as number) * ROW_HEIGHT)
+            : (d.target.y + CARD_HEADER_HEIGHT / 2);
+        grad.attr('x1', sx).attr('y1', sy).attr('x2', tx).attr('y2', ty);
+        grad.append('stop').attr('offset', '0%').attr('stop-color', d.startColor).attr('stop-opacity', 0.7);
+        grad.append('stop').attr('offset', '100%').attr('stop-color', d.endColor).attr('stop-opacity', 1);
+        return `url(#${gradId})`;
     };
 
     // 1. Render Static Links (The Rails)
@@ -277,7 +334,13 @@ const GraphVisualization: React.FC<Props> = ({
         .join("path")
         .attr("id", d => d.id) // Essential for mpath
         .attr("d", linkPath)
-        .attr("stroke", getLinkColor)
+        .attr("stroke", d => {
+            // If colors are different use gradient, else solid
+            if ((d.startColor || '').toLowerCase() !== (d.endColor || '').toLowerCase()) {
+                return addGradientForLink(d);
+            }
+            return getLinkColor(d);
+        })
         .attr("stroke-width", 2)
         .attr("stroke-opacity", 0.3) // Dim rail
         .attr("fill", "none")
