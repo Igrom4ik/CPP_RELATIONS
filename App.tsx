@@ -17,7 +17,7 @@ import { LiquidProgressBar } from './components/ui/LiquidProgressBar';
 import { useProject } from './hooks/useProject';
 import { useContextMenu, ContextMenuItem } from './hooks/useContextMenu';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { AISettings } from './types';
+import { AISettings, VisualSettings } from './types';
 import { configureAI } from './services/geminiService';
 
 // --- Error Boundary ---
@@ -64,6 +64,28 @@ const App: React.FC = () => {
   const [animateLinks, setAnimateLinks] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'processing' | 'error'>('idle');
 
+  // Visual settings
+  const defaultVisual: VisualSettings = {
+    showArrowheads: true,
+    palette: {
+      source: '#3b82f6',
+      header: '#f97316',
+      cmake: '#22c55e',
+      json: '#eab308',
+      glsl: '#a855f7',
+      other: '#3b82f6',
+    },
+    flow: { speed: 1, size: 3 },
+  };
+  const [visualSettings, setVisualSettings] = useState<VisualSettings>(() => {
+    try {
+      const raw = localStorage.getItem('cpp_relations_visual_settings_v1');
+      return raw ? (JSON.parse(raw) as VisualSettings) : defaultVisual;
+    } catch {
+      return defaultVisual;
+    }
+  });
+
   const contextMenu = useContextMenu();
 
   // Keyboard Shortcuts
@@ -108,6 +130,11 @@ const App: React.FC = () => {
       localStorage.setItem('cpp_relations_ai_config', JSON.stringify(s));
   };
 
+  const handleSaveVisual = (v: VisualSettings) => {
+      setVisualSettings(v);
+      try { localStorage.setItem('cpp_relations_visual_settings_v1', JSON.stringify(v)); } catch {}
+  };
+
   const openInCLion = (path: string, line?: number) => {
       const root = localStorage.getItem("clion_root") || "/Users/username/Project";
       const fullPath = `${root.replace(/\/$/, '')}/${path}`;
@@ -133,7 +160,19 @@ const App: React.FC = () => {
                     </div>
                 )}
                 {selectedNodeId ? (
-                    <GraphVisualization data={activeGraphData} onNodeClick={onNodeDoubleClick} onLinkClick={onLinkClick} onSymbolClick={onSymbolClick} searchTerm="" linkStyle={linkStyle} animateLinks={animateLinks} />
+                    <GraphVisualization
+                      data={activeGraphData}
+                      onNodeClick={onNodeDoubleClick}
+                      onLinkClick={onLinkClick}
+                      onSymbolClick={onSymbolClick}
+                      searchTerm=""
+                      linkStyle={linkStyle}
+                      animateLinks={animateLinks}
+                      showArrowheads={visualSettings.showArrowheads}
+                      palette={visualSettings.palette}
+                      flowSpeed={visualSettings.flow.speed}
+                      flowSize={visualSettings.flow.size}
+                    />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full text-zinc-600 gap-4 select-none">
                         <div className="w-20 h-20 rounded-2xl bg-zinc-900 flex items-center justify-center border border-zinc-800 shadow-inner">
@@ -216,7 +255,13 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-zinc-950 text-zinc-300 font-sans overflow-hidden">
-      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} onSave={handleSaveAIConfig} />
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        onSaveAI={handleSaveAIConfig}
+        onSaveVisual={handleSaveVisual}
+        initialVisual={visualSettings}
+      />
       <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} commands={commandActions} />
       <ContextMenu isOpen={contextMenu.isOpen} position={contextMenu.position} items={contextMenu.items} onClose={contextMenu.close} />
 

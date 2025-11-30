@@ -58,6 +58,22 @@ export interface AISettings {
   corsProxy?: string; // Optional CORS proxy prefix (e.g. https://corsproxy.io/?)
 }
 
+export interface VisualSettings {
+  showArrowheads: boolean;
+  palette: {
+    source: string;
+    header: string;
+    cmake: string;
+    json: string;
+    glsl: string;
+    other: string;
+  };
+  flow: {
+    speed: number; // 1 = default speed; >1 faster, <1 slower
+    size: number;  // particle radius in px
+  };
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';

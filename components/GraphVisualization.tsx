@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
-import { GraphData, FileNode, SymbolDefinition } from '../types';
+import { GraphData, FileNode, SymbolDefinition, VisualSettings } from '../types';
 
 interface Props {
   data: GraphData;
@@ -11,6 +11,10 @@ interface Props {
   searchTerm: string;
   linkStyle: 'bezier' | 'orthogonal';
   animateLinks: boolean;
+  showArrowheads?: boolean;
+  palette?: VisualSettings['palette'];
+  flowSpeed?: number;
+  flowSize?: number;
 }
 
 const CARD_WIDTH = 240;
@@ -30,7 +34,11 @@ const GraphVisualization: React.FC<Props> = ({
   onSymbolClick, 
   searchTerm,
   linkStyle,
-  animateLinks
+  animateLinks,
+  showArrowheads = true,
+  palette,
+  flowSpeed = 1,
+  flowSize = 3,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -148,12 +156,24 @@ const GraphVisualization: React.FC<Props> = ({
     svg.selectAll("*").remove();
 
     // --- Color helpers ---
+    const defaultPalette = {
+        source: '#3b82f6',
+        header: '#f97316',
+        cmake: '#22c55e',
+        json: '#eab308',
+        glsl: '#a855f7',
+        other: '#3b82f6',
+    } as VisualSettings['palette'];
+    const pal = { ...defaultPalette, ...(palette || {}) };
     const getNodeColor = (type: any) => {
-        if (type === 'header') return "#f97316";   // orange
-        if (type === 'cmake') return "#22c55e";    // green
-        if (type === 'json') return "#eab308";     // yellow
-        if (type === 'glsl') return "#a855f7";     // purple
-        return "#3b82f6";                          // blue (default for source/other)
+        switch(type) {
+            case 'header': return pal.header;
+            case 'cmake': return pal.cmake;
+            case 'json': return pal.json;
+            case 'glsl': return pal.glsl;
+            case 'source': return pal.source;
+            default: return pal.other;
+        }
     };
     const getSymbolColor = (symType?: string) => {
         switch(symType) {
@@ -171,23 +191,23 @@ const GraphVisualization: React.FC<Props> = ({
 
     // --- DEFS (Gradients & Markers) ---
     const defs = svg.append("defs");
-    
-    // Arrowheads
-    const createArrow = (id: string, color: string) => {
-        defs.append("marker")
-            .attr("id", id)
-            .attr("viewBox", "0 -5 10 10")
-            .attr("refX", 8).attr("refY", 0)
-            .attr("markerWidth", 6).attr("markerHeight", 6)
-            .attr("orient", "auto")
-            .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", color);
+    // Dynamic arrowhead registry to support arbitrary palette colors
+    const markerRegistry = new Map<string, string>();
+    const colorToId = (color: string) => `arrow-${color.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
+    const getOrCreateArrow = (color: string) => {
+        const key = color.toLowerCase();
+        if (markerRegistry.has(key)) return `url(#${markerRegistry.get(key)})`;
+        const id = colorToId(key);
+        defs.append('marker')
+            .attr('id', id)
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 8).attr('refY', 0)
+            .attr('markerWidth', 6).attr('markerHeight', 6)
+            .attr('orient', 'auto')
+            .append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', color);
+        markerRegistry.set(key, id);
+        return `url(#${id})`;
     };
-    createArrow("arrow-gray", "#71717a"); // zinc-500
-    createArrow("arrow-blue", "#3b82f6");
-    createArrow("arrow-orange", "#f97316");
-    createArrow("arrow-green", "#22c55e");
-    createArrow("arrow-yellow", "#eab308");
-    createArrow("arrow-purple", "#a855f7"); // purple-500 for GLSL
 
     // Gradients for Electric Flow
     // Note: pre-baked gradients kept for potential shading; per-link gradients will be created below
@@ -296,17 +316,7 @@ const GraphVisualization: React.FC<Props> = ({
 
     const getLinkColor = (d: any) => d.startColor || getNodeColor(d.source.type);
 
-    const getMarkerByColor = (color: string) => {
-        switch(color.toLowerCase()) {
-            case '#f97316': return 'url(#arrow-orange)';
-            case '#22c55e': return 'url(#arrow-green)';
-            case '#eab308': return 'url(#arrow-yellow)';
-            case '#a855f7': return 'url(#arrow-purple)';
-            case '#3b82f6': return 'url(#arrow-blue)';
-            default: return 'url(#arrow-gray)';
-        }
-    };
-    const getArrowId = (d: any) => getMarkerByColor(d.endColor || getNodeColor(d.target.type));
+    const getArrowId = (d: any) => getOrCreateArrow(d.endColor || getNodeColor(d.target.type));
 
     // Create per-link gradients
     const addGradientForLink = (d: any) => {
@@ -344,7 +354,7 @@ const GraphVisualization: React.FC<Props> = ({
         .attr("stroke-width", 2)
         .attr("stroke-opacity", 0.3) // Dim rail
         .attr("fill", "none")
-        .attr("marker-end", getArrowId)
+        .attr("marker-end", (d) => (showArrowheads ? getArrowId(d) : null))
         .style("cursor", "pointer")
         .on("click", (event, d) => {
             event.stopPropagation();
@@ -364,11 +374,11 @@ const GraphVisualization: React.FC<Props> = ({
             .data(linksData)
             .join("circle")
             .attr("class", safeDelayClass)
-            .attr("r", 3)
+            .attr("r", Math.max(1, flowSize))
             .attr("fill", getLinkColor)
             .style("filter", "drop-shadow(0 0 4px currentColor)")
             .append("animateMotion")
-            .attr("dur", "1.5s")
+            .attr("dur", `${(1.5 / Math.max(0.1, flowSpeed)).toFixed(2)}s`)
             .attr("begin", `${delay}s`)
             .attr("repeatCount", "indefinite")
             .attr("rotate", "auto")
@@ -430,24 +440,14 @@ const GraphVisualization: React.FC<Props> = ({
       .attr("fill", "#27272a") // zinc-800
       .attr("stroke", d => {
           if (searchTerm && d.name.toLowerCase().includes(searchTerm.toLowerCase())) return "#ef4444";
-          if (d.type === 'header') return "#f97316";
-          if (d.type === 'cmake') return "#22c55e";
-          if (d.type === 'json') return "#eab308";
-          if (d.type === 'glsl') return "#a855f7";
-          return "#3b82f6";
+          return getNodeColor(d.type);
       })
       .attr("stroke-width", d => (searchTerm && d.name.toLowerCase().includes(searchTerm.toLowerCase())) ? 3 : 1);
 
     // Node Header
     nodes.append("path")
       .attr("d", `M 0 6 A 6 6 0 0 1 6 0 L ${CARD_WIDTH - 6} 0 A 6 6 0 0 1 ${CARD_WIDTH} 6 L ${CARD_WIDTH} ${CARD_HEADER_HEIGHT} L 0 ${CARD_HEADER_HEIGHT} Z`)
-      .attr("fill", d => {
-          if (d.type === 'header') return "#f97316";
-          if (d.type === 'cmake') return "#22c55e";
-          if (d.type === 'json') return "#eab308";
-          if (d.type === 'glsl') return "#a855f7";
-          return "#3b82f6";
-      })
+      .attr("fill", d => getNodeColor(d.type))
       .attr("fill-opacity", 0.2);
 
     nodes.append("text")
