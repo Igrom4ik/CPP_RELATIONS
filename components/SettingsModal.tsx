@@ -30,6 +30,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
     });
     const [flowSpeed, setFlowSpeed] = useState<number>(1);
     const [flowSize, setFlowSize] = useState<number>(3);
+    // Galaxy settings (default values align with RealGalacticLayout)
+    const [galArms, setGalArms] = useState<number>(3);
+    const [galBulge, setGalBulge] = useState<number>(40);
+    const [galDisk, setGalDisk] = useState<number>(250);
+    const [galRotation, setGalRotation] = useState<number>(0.015);
+    const [galPitch, setGalPitch] = useState<number>(12);
+    const [galCoreDensity, setGalCoreDensity] = useState<number>(0.8);
 
     const presets: Record<string, { url: string, model: string }> = {
         'local': { url: 'http://localhost:1234', model: 'local-model' },
@@ -194,10 +201,52 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                         const v: VisualSettings = { showArrowheads, palette, flow: { speed: Math.max(0.1, Math.min(4, flowSpeed)), size: Math.max(1, Math.min(10, flowSize)) } };
                         try { localStorage.setItem('cpp_relations_visual_settings_v1', JSON.stringify(v)); } catch {}
                         onSaveVisual(v);
+                        // apply galaxy settings via global bridge (set by main code)
+                        try {
+                          const gl = (window as any).galacticLayout;
+                          if (gl) {
+                            gl.setArms(galArms);
+                            gl.setBulgeRadius(galBulge);
+                            gl.setDiskRadius(galDisk);
+                            gl.setRotationSpeed(galRotation);
+                            gl.setSpiralPitch(galPitch);
+                            gl.setCoreDensity(galCoreDensity);
+                          }
+                        } catch {}
                       }}>Save Visual</Button>
                     </div>
                   </div>
-                </div>
+                  {/* Galaxy Settings */}
+                  <div className="bg-[#0f1012] border border-[#24262b] rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-gray-200 mb-3">Galaxy Settings</h4>
+                    <div className="grid grid-cols-1 gap-3 text-xs text-gray-300">
+                      <label className="flex items-center justify-between gap-2 bg-[#0b0c0e] border border-[#333] rounded-md p-2">
+                        <span>Arms</span>
+                        <input type="number" min={1} max={8} value={galArms} onChange={(e) => setGalArms(Number(e.target.value))} className="w-20 bg-transparent text-white" />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 bg-[#0b0c0e] border border-[#333] rounded-md p-2">
+                        <span>Bulge Radius</span>
+                        <input type="number" min={1} max={200} value={galBulge} onChange={(e) => setGalBulge(Number(e.target.value))} className="w-20 bg-transparent text-white" />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 bg-[#0b0c0e] border border-[#333] rounded-md p-2">
+                        <span>Disk Radius</span>
+                        <input type="number" min={50} max={2000} value={galDisk} onChange={(e) => setGalDisk(Number(e.target.value))} className="w-20 bg-transparent text-white" />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 bg-[#0b0c0e] border border-[#333] rounded-md p-2">
+                        <span>Rotation Speed</span>
+                        <input type="number" step={0.001} min={0} max={0.1} value={galRotation} onChange={(e) => setGalRotation(Number(e.target.value))} className="w-20 bg-transparent text-white" />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 bg-[#0b0c0e] border border-[#333] rounded-md p-2">
+                        <span>Spiral Pitch</span>
+                        <input type="number" min={0} max={90} value={galPitch} onChange={(e) => setGalPitch(Number(e.target.value))} className="w-20 bg-transparent text-white" />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 bg-[#0b0c0e] border border-[#333] rounded-md p-2">
+                        <span>Core Density</span>
+                        <input type="range" min={0} max={1} step={0.01} value={galCoreDensity} onChange={(e) => setGalCoreDensity(Number(e.target.value))} className="w-full" />
+                      </label>
+                    </div>
+                  </div>
+                 </div>
 
                 <div className="flex justify-end gap-3 mt-6">
                     <Button variant="ghost" onClick={onClose}>Close</Button>
@@ -206,3 +255,4 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         </div>
     );
 };
+

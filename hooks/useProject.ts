@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { GraphData, FileNode, Tab, InteractionAnalysis, AISettings, SymbolDefinition } from '../types';
+import { useState, useEffect } from 'react';
+import { GraphData, FileNode, Tab, InteractionAnalysis, SymbolDefinition } from '../types';
 import { loadGraphData, saveGraphData } from '../services/storage';
 import { parseProjectFiles } from '../services/cppParser';
 import { configureAI, analyzeInteraction } from '../services/geminiService';
@@ -14,6 +14,8 @@ export const useProject = () => {
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [useAI, setUseAI] = useState(true);
+    const [showClusterLabels, setShowClusterLabels] = useState<boolean>(true);
+    const [clusterLabelSensitivity, setClusterLabelSensitivity] = useState<number>(1);
 
     // Initial Load
     useEffect(() => {
@@ -144,7 +146,9 @@ export const useProject = () => {
 
     return {
         data, loading, loadingProgress, tabs, activeTabId, selectedNodeId, isChatOpen, setIsChatOpen, useAI, setUseAI,
-        handleLoadFiles, addTab, closeTab, switchTab, onNodeDoubleClick, onSymbolClick, onLinkClick, onFileSelect, setSelectedNodeId
-        , setGraphData
+        handleLoadFiles, addTab, closeTab, switchTab, onNodeDoubleClick, onSymbolClick, onLinkClick, onFileSelect, setSelectedNodeId,
+        setGraphData,
+        showClusterLabels, setShowClusterLabels,
+        clusterLabelSensitivity, setClusterLabelSensitivity
     };
 };

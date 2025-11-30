@@ -19,7 +19,7 @@ import { useContextMenu, ContextMenuItem } from './hooks/useContextMenu';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { AISettings, VisualSettings } from './types';
 import { configureAI } from './services/geminiService';
-import ForceGraph3DView from './components/ForceGraph3DView';
+import CleanUniverse from './components/CleanUniverse-SizeBased';
 
 // Простая оболочка вместо полноценного ErrorBoundary (чтобы избежать TS проблем сейчас)
 // TODO: вернуть полнофункциональный ErrorBoundary при необходимости
@@ -47,6 +47,10 @@ const App: React.FC = () => {
     onFileSelect,
     setSelectedNodeId,
     setGraphData,
+    showClusterLabels,
+    setShowClusterLabels,
+    clusterLabelSensitivity,
+    setClusterLabelSensitivity,
   } = useProject() as any;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -192,6 +196,13 @@ const App: React.FC = () => {
             <button onClick={toggle3D} className={`p-1.5 rounded transition-all ${is3DMode ? 'bg-green-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`} title="Toggle 3D View">
               3D
             </button>
+            <button onClick={() => setShowClusterLabels(!showClusterLabels)} className={`p-1.5 rounded transition-all ${showClusterLabels ? 'bg-purple-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`} title="Toggle Cluster Labels">
+              CL
+            </button>
+            <div className="flex items-center gap-2 px-2">
+              <input type="range" min="0.2" max="3" step="0.1" value={clusterLabelSensitivity} onChange={(e) => setClusterLabelSensitivity(Number(e.target.value))} className="w-28" title="Cluster label sensitivity" />
+              <span className="text-xs text-zinc-300">{clusterLabelSensitivity.toFixed(1)}x</span>
+            </div>
           </div>
 
           {selectedNodeId && (
@@ -203,7 +214,7 @@ const App: React.FC = () => {
           )}
 
           {is3DMode ? (
-            <ForceGraph3DView data={graphFor3D || { nodes: [], links: [] }} onNodeClick={onNodeDoubleClick} />
+            <CleanUniverse data={graphFor3D || { nodes: [], links: [] }} onNodeClick={onNodeDoubleClick} />
           ) : selectedNodeId ? (
             <GraphVisualization
               data={activeGraphData}

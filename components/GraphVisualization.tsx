@@ -1,7 +1,16 @@
-
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import { GraphData, FileNode, SymbolDefinition, VisualSettings } from '../types';
+
+// Local augmented node type used for layout/rendering
+interface LayoutNode extends FileNode {
+  x: number;
+  y: number;
+  height: number;
+  level: number;
+  exportedSymbols?: SymbolDefinition[];
+  group: string; // make required to match FileNode contract
+}
 
 interface Props {
   data: GraphData;
@@ -84,15 +93,36 @@ const GraphVisualization: React.FC<Props> = ({
   }, []);
 
   // --- LAYOUT ALGORITHM ---
-  const layoutNodes = useMemo(() => {
+  const layoutNodes = useMemo<LayoutNode[]>(() => {
     if (data.nodes.length === 0) return [];
     
     const nodeMap = new Map<string, any>();
     // Clone nodes to avoid mutating props directly, preserve x/y if existing
-    data.nodes.forEach(n => nodeMap.set(n.id, { ...n, level: 0, height: 0, x: n.x || 0, y: n.y || 0 }));
+    data.nodes.forEach(n => nodeMap.set(n.id, { ...n, level: 0, height: 0, x: (typeof n.x === 'number' ? n.x : 0), y: (typeof n.y === 'number' ? n.y : 0), z: (typeof n.z === 'number' ? n.z : 0) }));
+
+    // If we have persisted positions from the 3D view, apply them to avoid re-layout animation
+    try {
+      const persisted = (typeof window !== 'undefined') ? (window as any).__CPP_RELATIONS_NODE_POSITIONS__ : null;
+      if (persisted && typeof persisted === 'object') {
+        Object.entries(persisted).forEach(([id, pos]) => {
+          try {
+            const p = pos as any;
+            if (!p) return;
+            const entry = nodeMap.get(id);
+            if (!entry) return;
+            if (typeof p.x === 'number' && typeof p.y === 'number') {
+              entry.x = p.x;
+              entry.y = p.y;
+              if (typeof p.z === 'number') entry.z = p.z;
+            }
+          } catch(e) {}
+        });
+      }
+    } catch(e) {}
 
     // Check if we need to run auto-layout (if positions are missing or all 0)
-    const needsLayout = data.nodes.some(n => n.x === undefined || (n.x === 0 && n.y === 0));
+    // Use nodeMap (which may have persisted positions applied) instead of original data.nodes
+    const needsLayout = Array.from(nodeMap.values()).some((n:any) => n.x === undefined || (n.x === 0 && n.y === 0));
 
     if (needsLayout) {
         let changed = true;
@@ -229,7 +259,7 @@ const GraphVisualization: React.FC<Props> = ({
 
     // --- LINKS ---
     // Prepare link data mapping (file-level + optional expanded symbol fan-out)
-    type LinkDatum = { source: any, target: any, id: string, rawId: string, targetSymbolIndex?: number, startColor?: string, endColor?: string };
+    type LinkDatum = { source: LayoutNode, target: LayoutNode, id: string, rawId: string, targetSymbolIndex?: number, startColor?: string, endColor?: string };
     const baseLinks: LinkDatum[] = data.links.map(l => {
         const src = layoutNodes.find(n => n.id === l.source);
         const tgt = layoutNodes.find(n => n.id === l.target);
@@ -339,7 +369,7 @@ const GraphVisualization: React.FC<Props> = ({
 
     // 1. Render Static Links (The Rails)
     const linkSelection = g.append("g").attr("class", "links")
-        .selectAll("path")
+        .selectAll<SVGPathElement, LinkDatum>("path")
         .data(linksData)
         .join("path")
         .attr("id", d => d.id) // Essential for mpath
@@ -393,7 +423,7 @@ const GraphVisualization: React.FC<Props> = ({
     const drag = d3.drag<SVGGElement, any>()
         // Filter out drag events from symbol buttons to allow clicking
         .filter(event => !event.target.closest('.no-drag'))
-        .on("start", function(event, d) {
+        .on("start", function(_event, _d) {
             d3.select(this).raise().attr("filter", "drop-shadow(0 0 8px rgba(255,255,255,0.5))");
         })
         .on("drag", function(event, d) {
@@ -403,22 +433,24 @@ const GraphVisualization: React.FC<Props> = ({
             // Update links (and thus particles follow)
             linkSelection.attr("d", linkPath);
         })
-        .on("end", function(event, d) {
+        .on("end", function(_event, _d) {
             d3.select(this).attr("filter", null);
         });
 
     const nodes = g.append("g").attr("class", "nodes")
-      .selectAll("g")
+      .selectAll<SVGGElement, LayoutNode>("g")
       .data(layoutNodes)
-      .join("g")
-      .attr("transform", d => `translate(${d.x}, ${d.y})`)
+      .join("g") as d3.Selection<SVGGElement, LayoutNode, SVGGElement, LayoutNode[]>;
+
+    nodes
+      .attr("transform", (d: LayoutNode) => `translate(${d.x}, ${d.y})`)
       .call(drag as any)
-      .on("click", (event, d) => {
+      .on("click", (event: any, d: LayoutNode) => {
           if (event.defaultPrevented) return; // Dragged
           event.stopPropagation();
           onNodeClick(d);
       })
-      .on("mouseenter", function(event, d) {
+      .on("mouseenter", function(event: any, d: LayoutNode) {
           const color = d.type === 'header' ? '#f97316' : d.type === 'cmake' ? '#22c55e' : d.type === 'json' ? '#eab308' : d.type === 'glsl' ? '#a855f7' : '#3b82f6';
           d3.select(this).attr("filter", `drop-shadow(0 0 12px ${color})`);
           d3.select(this).raise();
@@ -430,28 +462,28 @@ const GraphVisualization: React.FC<Props> = ({
       .style("transition", "filter 0.2s ease");
 
     // Node Body
-    nodes.append("rect")
-      .attr("width", CARD_WIDTH).attr("height", d => d.height)
+    nodes.append<SVGRectElement>("rect")
+      .attr("width", CARD_WIDTH).attr("height", (d: LayoutNode) => d.height)
       .attr("rx", 6).attr("fill", "#000").attr("fill-opacity", 0.5).attr("transform", "translate(4, 4)"); // Shadow
 
-    nodes.append("rect")
-      .attr("width", CARD_WIDTH).attr("height", d => d.height)
+    nodes.append<SVGRectElement>("rect")
+      .attr("width", CARD_WIDTH).attr("height", (d: LayoutNode) => d.height)
       .attr("rx", 6)
       .attr("fill", "#27272a") // zinc-800
-      .attr("stroke", d => {
+      .attr("stroke", (d: LayoutNode) => {
           if (searchTerm && d.name.toLowerCase().includes(searchTerm.toLowerCase())) return "#ef4444";
           return getNodeColor(d.type);
       })
-      .attr("stroke-width", d => (searchTerm && d.name.toLowerCase().includes(searchTerm.toLowerCase())) ? 3 : 1);
+      .attr("stroke-width", (d: LayoutNode) => (searchTerm && d.name.toLowerCase().includes(searchTerm.toLowerCase())) ? 3 : 1);
 
     // Node Header
-    nodes.append("path")
+    nodes.append<SVGPathElement>("path")
       .attr("d", `M 0 6 A 6 6 0 0 1 6 0 L ${CARD_WIDTH - 6} 0 A 6 6 0 0 1 ${CARD_WIDTH} 6 L ${CARD_WIDTH} ${CARD_HEADER_HEIGHT} L 0 ${CARD_HEADER_HEIGHT} Z`)
-      .attr("fill", d => getNodeColor(d.type))
+      .attr("fill", (d: LayoutNode) => getNodeColor(d.type))
       .attr("fill-opacity", 0.2);
 
-    nodes.append("text")
-      .text(d => d.name)
+    nodes.append<SVGTextElement>("text")
+      .text((d: LayoutNode) => d.name)
       .attr("x", 10).attr("y", 19)
       .attr("fill", "#fff")
       .style("font-family", "JetBrains Mono, monospace").style("font-weight", "600").style("font-size", "12px");
@@ -467,36 +499,36 @@ const GraphVisualization: React.FC<Props> = ({
         setExpandedNodes(next);
       });
 
-    headerBtn.append("rect")
-      .attr("x", CARD_WIDTH - 22)
-      .attr("y", 6)
-      .attr("width", 16)
-      .attr("height", 16)
-      .attr("rx", 4)
-      .attr("fill", "#18181b")
-      .attr("stroke", "#3f3f46")
-      .attr("opacity", 0.9);
+    headerBtn.append<SVGRectElement>("rect")
+       .attr("x", CARD_WIDTH - 22)
+       .attr("y", 6)
+       .attr("width", 16)
+       .attr("height", 16)
+       .attr("rx", 4)
+       .attr("fill", "#18181b")
+       .attr("stroke", "#3f3f46")
+       .attr("opacity", 0.9);
 
     // plus/minus icon
-    headerBtn.append("path")
-      .attr("d", d => expandedNodes.has((d as any).id)
-          ? `M ${CARD_WIDTH - 19} 14 H ${CARD_WIDTH - 9}` // minus
-          : `M ${CARD_WIDTH - 19} 14 H ${CARD_WIDTH - 9} M ${CARD_WIDTH - 14} 9 V 19`) // plus
-      .attr("stroke", "#d4d4d8")
-      .attr("stroke-width", 1.5)
-      .attr("fill", "none")
-      .attr("stroke-linecap", "round");
-    
+    headerBtn.append<SVGPathElement>("path")
+      .attr("d", (d: LayoutNode | any) => expandedNodes.has((d as any).id)
+           ? `M ${CARD_WIDTH - 19} 14 H ${CARD_WIDTH - 9}` // minus
+           : `M ${CARD_WIDTH - 19} 14 H ${CARD_WIDTH - 9} M ${CARD_WIDTH - 14} 9 V 19`) // plus
+       .attr("stroke", "#d4d4d8")
+       .attr("stroke-width", 1.5)
+       .attr("fill", "none")
+       .attr("stroke-linecap", "round");
+
     // Symbols List
-    nodes.each(function(d) {
+    nodes.each(function(this: SVGGElement, d: LayoutNode) {
         const el = d3.select(this);
-        const symbols: SymbolDefinition[] = d.exportedSymbols || [];
-        
+        const symbols: SymbolDefinition[] = (d && (d.exportedSymbols as SymbolDefinition[])) || [];
+
         if (symbols.length > 0) {
             const symGroup = el.append("g").attr("class", "symbols");
             symbols.forEach((sym, i) => {
                 const yPos = CARD_HEADER_HEIGHT + 16 + (i * ROW_HEIGHT);
-                const item = symGroup.append("g")
+                const item = symGroup.append<SVGGElement>("g")
                     .attr("class", "no-drag") // MARKER for drag filter
                     .style("cursor", "pointer")
                     .style("pointer-events", "all") // Ensure clicks register
@@ -558,3 +590,4 @@ const GraphVisualization: React.FC<Props> = ({
 };
 
 export default GraphVisualization;
+
